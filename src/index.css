@@ -1,0 +1,207 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* 365writers Marketplace Design System */
+
+@layer base {
+  :root {
+    /* Professional writing marketplace color palette */
+    --background: 0 0% 100%;
+    --foreground: 210 11% 15%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 210 11% 15%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 210 11% 15%;
+
+    /* Primary brand colors - Professional blue */
+    --primary: 214 84% 56%;
+    --primary-foreground: 0 0% 98%;
+    --primary-light: 214 100% 95%;
+    --primary-dark: 214 84% 46%;
+
+    /* Secondary colors - Success green for payments */
+    --secondary: 142 76% 36%;
+    --secondary-foreground: 0 0% 98%;
+    --secondary-light: 142 76% 95%;
+
+    /* Accent colors - Professional teal */
+    --accent: 180 70% 45%;
+    --accent-foreground: 0 0% 98%;
+    --accent-light: 180 70% 95%;
+
+    /* Neutral colors */
+    --muted: 210 40% 96%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 214 84% 56%;
+
+    --radius: 0.75rem;
+
+    /* Writing-specific colors */
+    --writer: 268 83% 58%;
+    --writer-foreground: 0 0% 98%;
+    --writer-light: 268 83% 95%;
+    
+    --client: 188 94% 43%;
+    --client-foreground: 0 0% 98%;
+    --client-light: 188 94% 95%;
+
+    --admin: 346 87% 43%;
+    --admin-foreground: 0 0% 98%;
+    --admin-light: 346 87% 95%;
+
+    /* USDT/Crypto colors */
+    --crypto: 142 100% 35%;
+    --crypto-foreground: 0 0% 98%;
+    --crypto-light: 142 100% 95%;
+
+    /* Gradients */
+    --gradient-primary: linear-gradient(135deg, hsl(214 84% 56%), hsl(268 83% 58%));
+    --gradient-success: linear-gradient(135deg, hsl(142 76% 36%), hsl(142 100% 35%));
+    --gradient-hero: linear-gradient(135deg, hsl(214 84% 56%), hsl(188 94% 43%), hsl(268 83% 58%));
+    
+    /* Shadows */
+    --shadow-soft: 0 2px 8px -2px hsl(214 84% 56% / 0.1);
+    --shadow-medium: 0 4px 16px -4px hsl(214 84% 56% / 0.15);
+    --shadow-strong: 0 8px 32px -8px hsl(214 84% 56% / 0.2);
+    --shadow-glow: 0 0 24px hsl(214 84% 56% / 0.25);
+
+    /* Animations */
+    --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-fast: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+
+    --sidebar-background: 0 0% 98%;
+
+    --sidebar-foreground: 240 5.3% 26.1%;
+
+    --sidebar-primary: 240 5.9% 10%;
+
+    --sidebar-primary-foreground: 0 0% 98%;
+
+    --sidebar-accent: 240 4.8% 95.9%;
+
+    --sidebar-accent-foreground: 240 5.9% 10%;
+
+    --sidebar-border: 220 13% 91%;
+
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+
+  .dark {
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
+
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
+
+    --primary: 210 40% 98%;
+    --primary-foreground: 222.2 47.4% 11.2%;
+
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
+
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 212.7 26.8% 83.9%;
+    --sidebar-background: 240 5.9% 10%;
+    --sidebar-foreground: 240 4.8% 95.9%;
+    --sidebar-primary: 224.3 76.3% 48%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 240 3.7% 15.9%;
+    --sidebar-accent-foreground: 240 4.8% 95.9%;
+    --sidebar-border: 240 3.7% 15.9%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+
+  /* Custom utility classes */
+  .gradient-primary {
+    background: var(--gradient-primary);
+  }
+
+  .gradient-success {
+    background: var(--gradient-success);
+  }
+
+  .gradient-hero {
+    background: var(--gradient-hero);
+  }
+
+  .shadow-soft {
+    box-shadow: var(--shadow-soft);
+  }
+
+  .shadow-medium {
+    box-shadow: var(--shadow-medium);
+  }
+
+  .shadow-strong {
+    box-shadow: var(--shadow-strong);
+  }
+
+  .shadow-glow {
+    box-shadow: var(--shadow-glow);
+  }
+
+  .transition-smooth {
+    transition: var(--transition-smooth);
+  }
+
+  .transition-fast {
+    transition: var(--transition-fast);
+  }
+
+  /* Animated gradient backgrounds */
+  .animate-gradient {
+    background-size: 400% 400%;
+    animation: gradient 15s ease infinite;
+  }
+
+  @keyframes gradient {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+  }
+
+  /* Glass morphism effect */
+  .glass {
+    backdrop-filter: blur(16px) saturate(180%);
+    background-color: rgba(255, 255, 255, 0.75);
+    border: 1px solid rgba(255, 255, 255, 0.125);
+  }
+
+  /* Scroll animations */
+  .scroll-smooth {
+    scroll-behavior: smooth;
+  }
+}
