@@ -1,5 +1,7 @@
 import { useState } from "react";
-import { useSearchParams, Link } from "react-router-dom";
+import { useSearchParams, Link, useNavigate } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/components/ui/use-toast";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -12,12 +14,92 @@ const Auth = () => {
   const [searchParams] = useSearchParams();
   const [showPassword, setShowPassword] = useState(false);
   const [isLogin, setIsLogin] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const userType = searchParams.get('type') || 'client';
+  const navigate = useNavigate();
+  const { toast } = useToast();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Handle authentication logic here
-    console.log("Auth form submitted");
+    setIsLoading(true);
+    
+    const formData = new FormData(e.target as HTMLFormElement);
+    const email = formData.get('email') as string;
+    const password = formData.get('password') as string;
+    
+    try {
+      if (isLogin) {
+        // Sign in
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+        
+        if (error) {
+          toast({
+            title: "Sign in failed",
+            description: error.message,
+            variant: "destructive",
+          });
+          return;
+        }
+        
+        toast({
+          title: "Welcome back!",
+          description: "You have been signed in successfully.",
+        });
+        
+        navigate('/');
+      } else {
+        // Sign up
+        const firstName = formData.get('firstName') as string;
+        const lastName = formData.get('lastName') as string;
+        const confirmPassword = formData.get('confirmPassword') as string;
+        
+        if (password !== confirmPassword) {
+          toast({
+            title: "Passwords don't match",
+            description: "Please make sure your passwords match.",
+            variant: "destructive",
+          });
+          return;
+        }
+        
+        const { data, error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            emailRedirectTo: `${window.location.origin}/`,
+            data: {
+              full_name: `${firstName} ${lastName}`,
+              role: userType,
+            },
+          },
+        });
+        
+        if (error) {
+          toast({
+            title: "Sign up failed",
+            description: error.message,
+            variant: "destructive",
+          });
+          return;
+        }
+        
+        toast({
+          title: "Account created!",
+          description: "Please check your email to verify your account.",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "An error occurred",
+        description: "Please try again later.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -84,11 +166,11 @@ const Auth = () => {
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="firstName">First Name</Label>
-                      <Input id="firstName" placeholder="John" required />
+                      <Input id="firstName" name="firstName" placeholder="John" required />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="lastName">Last Name</Label>
-                      <Input id="lastName" placeholder="Doe" required />
+                      <Input id="lastName" name="lastName" placeholder="Doe" required />
                     </div>
                   </div>
                 )}
@@ -97,6 +179,7 @@ const Auth = () => {
                   <Label htmlFor="email">Email</Label>
                   <Input 
                     id="email" 
+                    name="email"
                     type="email" 
                     placeholder="john@example.com" 
                     required 
@@ -108,6 +191,7 @@ const Auth = () => {
                   <div className="relative">
                     <Input 
                       id="password" 
+                      name="password"
                       type={showPassword ? "text" : "password"}
                       placeholder="Enter your password"
                       required 
@@ -133,6 +217,7 @@ const Auth = () => {
                     <Label htmlFor="confirmPassword">Confirm Password</Label>
                     <Input 
                       id="confirmPassword" 
+                      name="confirmPassword"
                       type="password"
                       placeholder="Confirm your password"
                       required 
@@ -157,8 +242,9 @@ const Auth = () => {
                   className="w-full" 
                   variant={userType === 'writer' ? 'writer' : userType === 'client' ? 'client' : 'default'}
                   size="lg"
+                  disabled={isLoading}
                 >
-                  {isLogin 
+                  {isLoading ? 'Please wait...' : isLogin 
                     ? 'Sign In' 
                     : `Create ${userType === 'writer' ? 'Writer' : 'Client'} Account`
                   }
