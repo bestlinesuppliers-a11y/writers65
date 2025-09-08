@@ -1,4 +1,6 @@
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Navigation } from "@/components/Navigation";
@@ -18,9 +20,48 @@ import {
 } from "lucide-react";
 
 const Home = () => {
+  const [userRole, setUserRole] = useState<'client' | 'writer' | 'admin' | null>(null);
+
+  useEffect(() => {
+    checkAuth();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        if (session?.user) {
+          await fetchUserRole(session.user.id);
+        } else {
+          setUserRole(null);
+        }
+      }
+    );
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const checkAuth = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session?.user) {
+      await fetchUserRole(session.user.id);
+    }
+  };
+
+  const fetchUserRole = async (userId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', userId)
+        .single();
+
+      if (error) throw error;
+      setUserRole(data.role as 'client' | 'writer' | 'admin');
+    } catch (error) {
+      console.error('Error fetching user role:', error);
+    }
+  };
   return (
     <div className="min-h-screen bg-background">
-      <Navigation />
+      <Navigation userRole={userRole} />
       
       {/* Hero Section */}
       <section className="relative overflow-hidden gradient-hero animate-gradient py-20 lg:py-32">
