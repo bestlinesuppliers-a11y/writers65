@@ -1,0 +1,3 @@
+-- Reset password for admin user
+-- This will be handled via the admin reset password function
+-- The user needs to call the edge function to reset their password to "123456"
