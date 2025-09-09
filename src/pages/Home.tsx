@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, Navigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -59,6 +59,20 @@ const Home = () => {
       console.error('Error fetching user role:', error);
     }
   };
+
+  // Redirect logged-in users to their appropriate dashboard
+  if (userRole === 'admin') {
+    return <Navigate to="/admin" replace />;
+  }
+  
+  if (userRole === 'writer') {
+    return <Navigate to="/writer" replace />;
+  }
+  
+  if (userRole === 'client') {
+    return <Navigate to="/client/dashboard" replace />;
+  }
+
   return (
     <div className="min-h-screen bg-background">
       <Navigation userRole={userRole} />

@@ -17,6 +17,10 @@ import UsersManagement from "./pages/admin/UsersManagement";
 import WritersManagement from "./pages/admin/WritersManagement";
 import OrdersManagement from "./pages/admin/OrdersManagement";
 import PaymentsManagement from "./pages/admin/PaymentsManagement";
+import WriterLayout from "./pages/writer/WriterLayout";
+import WriterDashboard from "./pages/writer/WriterDashboard";
+import AvailableOrders from "./pages/writer/AvailableOrders";
+import WriterAssignments from "./pages/writer/WriterAssignments";
 
 const queryClient = new QueryClient();
 
@@ -43,6 +47,17 @@ const App = () => (
             <Route path="writers" element={<WritersManagement />} />
             <Route path="orders" element={<OrdersManagement />} />
             <Route path="payments" element={<PaymentsManagement />} />
+          </Route>
+          
+          {/* Writer Routes */}
+          <Route path="/writer" element={<WriterLayout />}>
+            <Route index element={<WriterDashboard />} />
+            <Route path="orders" element={<AvailableOrders />} />
+            <Route path="assignments" element={<WriterAssignments />} />
+            <Route path="submissions" element={<div className="p-6">Submissions - Coming Soon</div>} />
+            <Route path="messages" element={<div className="p-6">Messages - Coming Soon</div>} />
+            <Route path="earnings" element={<div className="p-6">Earnings - Coming Soon</div>} />
+            <Route path="profile" element={<div className="p-6">Profile - Coming Soon</div>} />
           </Route>
           
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
