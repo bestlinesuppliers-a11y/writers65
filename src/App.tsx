@@ -21,6 +21,8 @@ import WriterLayout from "./pages/writer/WriterLayout";
 import WriterDashboard from "./pages/writer/WriterDashboard";
 import AvailableOrders from "./pages/writer/AvailableOrders";
 import WriterAssignments from "./pages/writer/WriterAssignments";
+import ClientLayout from "./pages/client/ClientLayout";
+import ClientDashboard from "./pages/client/ClientDashboard";
 
 const queryClient = new QueryClient();
 
@@ -57,6 +59,18 @@ const App = () => (
             <Route path="submissions" element={<div className="p-6">Submissions - Coming Soon</div>} />
             <Route path="messages" element={<div className="p-6">Messages - Coming Soon</div>} />
             <Route path="earnings" element={<div className="p-6">Earnings - Coming Soon</div>} />
+            <Route path="profile" element={<div className="p-6">Profile - Coming Soon</div>} />
+          </Route>
+          
+          {/* Client Routes */}
+          <Route path="/client" element={<ClientLayout />}>
+            <Route index element={<ClientDashboard />} />
+            <Route path="dashboard" element={<ClientDashboard />} />
+            <Route path="place-order" element={<div className="p-6">Place Order - Coming Soon</div>} />
+            <Route path="orders" element={<div className="p-6">Active Orders - Coming Soon</div>} />
+            <Route path="completed" element={<div className="p-6">Completed Orders - Coming Soon</div>} />
+            <Route path="payments" element={<div className="p-6">Payments - Coming Soon</div>} />
+            <Route path="messages" element={<div className="p-6">Messages - Coming Soon</div>} />
             <Route path="profile" element={<div className="p-6">Profile - Coming Soon</div>} />
           </Route>
           
