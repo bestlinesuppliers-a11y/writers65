@@ -21,8 +21,15 @@ import WriterLayout from "./pages/writer/WriterLayout";
 import WriterDashboard from "./pages/writer/WriterDashboard";
 import AvailableOrders from "./pages/writer/AvailableOrders";
 import WriterAssignments from "./pages/writer/WriterAssignments";
+import WriterSubmissions from "./pages/writer/WriterSubmissions";
+import WriterMessages from "./pages/writer/WriterMessages";
+import WriterEarnings from "./pages/writer/WriterEarnings";
+import WriterProfile from "./pages/writer/WriterProfile";
 import ClientLayout from "./pages/client/ClientLayout";
 import ClientDashboard from "./pages/client/ClientDashboard";
+import PlaceOrder from "./pages/client/PlaceOrder";
+import ActiveOrders from "./pages/client/ActiveOrders";
+import CompletedOrders from "./pages/client/CompletedOrders";
 
 const queryClient = new QueryClient();
 
@@ -56,19 +63,19 @@ const App = () => (
             <Route index element={<WriterDashboard />} />
             <Route path="orders" element={<AvailableOrders />} />
             <Route path="assignments" element={<WriterAssignments />} />
-            <Route path="submissions" element={<div className="p-6">Submissions - Coming Soon</div>} />
-            <Route path="messages" element={<div className="p-6">Messages - Coming Soon</div>} />
-            <Route path="earnings" element={<div className="p-6">Earnings - Coming Soon</div>} />
-            <Route path="profile" element={<div className="p-6">Profile - Coming Soon</div>} />
+            <Route path="submissions" element={<WriterSubmissions />} />
+            <Route path="messages" element={<WriterMessages />} />
+            <Route path="earnings" element={<WriterEarnings />} />
+            <Route path="profile" element={<WriterProfile />} />
           </Route>
           
           {/* Client Routes */}
           <Route path="/client" element={<ClientLayout />}>
             <Route index element={<ClientDashboard />} />
             <Route path="dashboard" element={<ClientDashboard />} />
-            <Route path="place-order" element={<div className="p-6">Place Order - Coming Soon</div>} />
-            <Route path="orders" element={<div className="p-6">Active Orders - Coming Soon</div>} />
-            <Route path="completed" element={<div className="p-6">Completed Orders - Coming Soon</div>} />
+            <Route path="place-order" element={<PlaceOrder />} />
+            <Route path="orders" element={<ActiveOrders />} />
+            <Route path="completed" element={<CompletedOrders />} />
             <Route path="payments" element={<div className="p-6">Payments - Coming Soon</div>} />
             <Route path="messages" element={<div className="p-6">Messages - Coming Soon</div>} />
             <Route path="profile" element={<div className="p-6">Profile - Coming Soon</div>} />
