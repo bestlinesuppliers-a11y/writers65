@@ -62,7 +62,14 @@ export default function PlaceOrder() {
           .from('order-attachments')
           .upload(fileName, file);
 
-        if (!uploadError) {
+        if (uploadError) {
+          console.error('Upload error:', uploadError);
+          toast({
+            title: "Warning",
+            description: `Failed to upload ${file.name}. Continuing with order creation.`,
+            variant: "destructive",
+          });
+        } else {
           uploadedAttachments.push(fileName);
         }
       }
@@ -95,8 +102,8 @@ export default function PlaceOrder() {
         description: "Order created successfully! Redirecting to payment...",
       });
 
-      // Redirect to payment page (to be implemented)
-      navigate('/client/orders');
+      // Redirect to payment page
+      navigate(`/client/payment/${data.id}`);
     } catch (error) {
       toast({
         title: "Error",
@@ -109,7 +116,7 @@ export default function PlaceOrder() {
   };
 
   const calculatePages = (words: number) => {
-    return Math.ceil(words / 250); // Assuming 250 words per page
+    return Math.ceil(words / 275); // Assuming 275 words per page
   };
 
   const calculateBudget = () => {
@@ -311,10 +318,22 @@ export default function PlaceOrder() {
                 multiple
                 onChange={(e) => setAttachments(Array.from(e.target.files || []))}
                 accept=".pdf,.doc,.docx,.txt,.png,.jpg,.jpeg"
+                className="file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-medium file:bg-primary file:text-primary-foreground hover:file:bg-primary/90"
               />
               <p className="text-xs text-muted-foreground mt-1">
                 Supported formats: PDF, DOC, DOCX, TXT, PNG, JPG (Max 10MB each)
               </p>
+              {attachments.length > 0 && (
+                <div className="mt-2 space-y-1">
+                  <p className="text-sm font-medium">Selected files:</p>
+                  {attachments.map((file, index) => (
+                    <div key={index} className="flex items-center justify-between text-xs bg-muted p-2 rounded">
+                      <span>{file.name}</span>
+                      <span className="text-muted-foreground">{(file.size / 1024 / 1024).toFixed(1)}MB</span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>

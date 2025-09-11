@@ -28,6 +28,7 @@ import WriterProfile from "./pages/writer/WriterProfile";
 import ClientLayout from "./pages/client/ClientLayout";
 import ClientDashboard from "./pages/client/ClientDashboard";
 import PlaceOrder from "./pages/client/PlaceOrder";
+import Payment from "./pages/client/Payment";
 import ActiveOrders from "./pages/client/ActiveOrders";
 import CompletedOrders from "./pages/client/CompletedOrders";
 
@@ -76,6 +77,7 @@ const App = () => (
             <Route path="place-order" element={<PlaceOrder />} />
             <Route path="orders" element={<ActiveOrders />} />
             <Route path="completed" element={<CompletedOrders />} />
+            <Route path="payment/:orderId" element={<Payment />} />
             <Route path="payments" element={<div className="p-6">Payments - Coming Soon</div>} />
             <Route path="messages" element={<div className="p-6">Messages - Coming Soon</div>} />
             <Route path="profile" element={<div className="p-6">Profile - Coming Soon</div>} />
