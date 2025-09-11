@@ -263,6 +263,7 @@ export type Database = {
           instructions: string | null
           pages: number
           referencing_style: string | null
+          sources: number | null
           status: Database["public"]["Enums"]["order_status"] | null
           title: string
           updated_at: string | null
@@ -283,6 +284,7 @@ export type Database = {
           instructions?: string | null
           pages: number
           referencing_style?: string | null
+          sources?: number | null
           status?: Database["public"]["Enums"]["order_status"] | null
           title: string
           updated_at?: string | null
@@ -303,6 +305,7 @@ export type Database = {
           instructions?: string | null
           pages?: number
           referencing_style?: string | null
+          sources?: number | null
           status?: Database["public"]["Enums"]["order_status"] | null
           title?: string
           updated_at?: string | null

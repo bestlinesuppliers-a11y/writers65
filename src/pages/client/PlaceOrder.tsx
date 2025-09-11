@@ -23,6 +23,7 @@ export default function PlaceOrder() {
     instructions: "",
     referencingStyle: "",
     budgetUsd: 0,
+    sources: 0,
   });
   const [attachments, setAttachments] = useState<File[]>([]);
 
@@ -32,7 +33,7 @@ export default function PlaceOrder() {
   ];
 
   const academicLevels = [
-    "high_school", "undergraduate", "graduate", "phd", "professional"
+    "high_school", "undergraduate", "masters", "phd", "professional"
   ];
 
   const referencingStyles = [
@@ -90,6 +91,7 @@ export default function PlaceOrder() {
           budget_usd: formData.budgetUsd,
           client_id: user.id,
           attachments: uploadedAttachments,
+          sources: formData.sources,
           status: 'pending_payment',
         })
         .select()
@@ -105,9 +107,10 @@ export default function PlaceOrder() {
       // Redirect to payment page
       navigate(`/client/payment/${data.id}`);
     } catch (error) {
+      console.error('Order creation error:', error);
       toast({
         title: "Error",
-        description: "Failed to create order",
+        description: error instanceof Error ? error.message : "Failed to create order. Please check all fields and try again.",
         variant: "destructive",
       });
     } finally {
@@ -123,7 +126,7 @@ export default function PlaceOrder() {
     const baseRate = {
       high_school: 15,
       undergraduate: 20,
-      graduate: 25,
+      masters: 25,
       phd: 30,
       professional: 35,
     }[formData.academicLevel] || 20;
@@ -243,7 +246,7 @@ export default function PlaceOrder() {
             <CardTitle>Project Details</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div>
                 <Label htmlFor="words">Word Count *</Label>
                 <Input
@@ -264,6 +267,18 @@ export default function PlaceOrder() {
                   value={formData.pages}
                   readOnly
                   className="bg-muted"
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="sources">Number of Sources</Label>
+                <Input
+                  id="sources"
+                  type="number"
+                  value={formData.sources}
+                  onChange={(e) => setFormData(prev => ({ ...prev, sources: Number(e.target.value) }))}
+                  min="0"
+                  placeholder="e.g., 5"
                 />
               </div>
 
@@ -364,7 +379,7 @@ export default function PlaceOrder() {
                 <div className="flex justify-between">
                   <span>Base rate per page:</span>
                   <span>${academicLevels.includes(formData.academicLevel) ? 
-                    { high_school: 15, undergraduate: 20, graduate: 25, phd: 30, professional: 35 }[formData.academicLevel] : 20}
+                    { high_school: 15, undergraduate: 20, masters: 25, phd: 30, professional: 35 }[formData.academicLevel] : 20}
                   </span>
                 </div>
                 <div className="flex justify-between">
