@@ -55,25 +55,74 @@ export default function PlaceOrder() {
         return;
       }
 
+      // Validate form data
+      if (!formData.title || !formData.description || !formData.category || 
+          !formData.academicLevel || !formData.words || !formData.deadline) {
+        toast({
+          title: "Error",
+          description: "Please fill in all required fields",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Validate file sizes (max 10MB each)
+      for (const file of attachments) {
+        if (file.size > 10 * 1024 * 1024) {
+          toast({
+            title: "Error",
+            description: `File ${file.name} exceeds 10MB limit. Please choose a smaller file.`,
+            variant: "destructive",
+          });
+          return;
+        }
+      }
+
       // Upload attachments if any
       const uploadedAttachments: string[] = [];
+      let uploadErrors: string[] = [];
+      
       for (const file of attachments) {
         const fileName = `${user.id}/${Date.now()}-${file.name}`;
-        const { error: uploadError } = await supabase.storage
+        console.log('Uploading file:', fileName, 'Size:', file.size);
+        
+        const { data: uploadData, error: uploadError } = await supabase.storage
           .from('order-attachments')
-          .upload(fileName, file);
+          .upload(fileName, file, {
+            cacheControl: '3600',
+            upsert: false
+          });
 
         if (uploadError) {
           console.error('Upload error:', uploadError);
-          toast({
-            title: "Warning",
-            description: `Failed to upload ${file.name}. Continuing with order creation.`,
-            variant: "destructive",
-          });
-        } else {
+          uploadErrors.push(`${file.name}: ${uploadError.message}`);
+        } else if (uploadData) {
           uploadedAttachments.push(fileName);
+          console.log('Successfully uploaded:', fileName);
         }
       }
+
+      // Show upload errors if any, but allow order creation to continue
+      if (uploadErrors.length > 0) {
+        console.warn('Upload errors:', uploadErrors);
+        toast({
+          title: "Upload Warning",
+          description: `Some files failed to upload: ${uploadErrors.join(', ')}. Order will be created without these files.`,
+          variant: "destructive",
+        });
+      }
+
+      console.log('Creating order with data:', {
+        title: formData.title,
+        description: formData.description,
+        category: formData.category,
+        academic_level: formData.academicLevel,
+        words: formData.words,
+        pages: formData.pages,
+        deadline: formData.deadline,
+        attachments: uploadedAttachments,
+        sources: formData.sources,
+      });
 
       // Create the order
       const { data, error } = await supabase
@@ -97,20 +146,31 @@ export default function PlaceOrder() {
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Database error:', error);
+        throw error;
+      }
+
+      console.log('Order created successfully:', data);
 
       toast({
         title: "Success",
-        description: "Order created successfully! Redirecting to payment...",
+        description: attachments.length > 0 && uploadedAttachments.length === 0 
+          ? "Order created successfully, but some files failed to upload. Redirecting to payment..." 
+          : "Order created successfully! Redirecting to payment...",
       });
 
       // Redirect to payment page
       navigate(`/client/payment/${data.id}`);
     } catch (error) {
       console.error('Order creation error:', error);
+      const errorMessage = error instanceof Error ? error.message : "Failed to create order";
+      
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to create order. Please check all fields and try again.",
+        description: errorMessage.includes("RLS") 
+          ? "Access denied. Please make sure you're logged in and try again."
+          : errorMessage,
         variant: "destructive",
       });
     } finally {
