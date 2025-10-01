@@ -62,6 +62,50 @@ export type Database = {
           },
         ]
       }
+      bids: {
+        Row: {
+          cover_letter: string | null
+          created_at: string | null
+          id: string
+          order_id: string
+          proposed_rate: number
+          reviewed_at: string | null
+          status: string
+          updated_at: string | null
+          writer_id: string
+        }
+        Insert: {
+          cover_letter?: string | null
+          created_at?: string | null
+          id?: string
+          order_id: string
+          proposed_rate: number
+          reviewed_at?: string | null
+          status?: string
+          updated_at?: string | null
+          writer_id: string
+        }
+        Update: {
+          cover_letter?: string | null
+          created_at?: string | null
+          id?: string
+          order_id?: string
+          proposed_rate?: number
+          reviewed_at?: string | null
+          status?: string
+          updated_at?: string | null
+          writer_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bids_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       disputes: {
         Row: {
           closed_at: string | null
