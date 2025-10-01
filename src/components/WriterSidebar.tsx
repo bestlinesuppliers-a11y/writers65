@@ -18,7 +18,7 @@ import {
   MessageSquare,
   User,
   Search,
-  Settings,
+  Gavel,
 } from "lucide-react";
 
 const writerMenuItems = [
@@ -31,6 +31,11 @@ const writerMenuItems = [
     title: "Available Orders",
     url: "/writer/orders",
     icon: Search,
+  },
+  {
+    title: "My Bids",
+    url: "/writer/bids",
+    icon: Gavel,
   },
   {
     title: "My Assignments",

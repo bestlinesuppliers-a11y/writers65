@@ -1,21 +1,15 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import {
-  FileText,
-  DollarSign,
-  Clock,
-  BookOpen,
-  Search,
-  Filter,
-  Calendar,
-  User,
-} from "lucide-react";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Search, Info } from "lucide-react";
 
 interface Order {
   id: string;
@@ -28,6 +22,7 @@ interface Order {
   budget_usd: number;
   deadline: string;
   created_at: string;
+  referencing_style: string;
   profiles: {
     full_name: string;
   };
@@ -38,8 +33,11 @@ export default function AvailableOrders() {
   const [filteredOrders, setFilteredOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
-  const [categoryFilter, setCategoryFilter] = useState("all");
-  const [levelFilter, setLevelFilter] = useState("all");
+  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [bidDialogOpen, setBidDialogOpen] = useState(false);
+  const [proposedRate, setProposedRate] = useState("");
+  const [coverLetter, setCoverLetter] = useState("");
+  const [submittingBid, setSubmittingBid] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -48,7 +46,7 @@ export default function AvailableOrders() {
 
   useEffect(() => {
     filterOrders();
-  }, [orders, searchTerm, categoryFilter, levelFilter]);
+  }, [orders, searchTerm]);
 
   const fetchAvailableOrders = async () => {
     try {
@@ -80,64 +78,99 @@ export default function AvailableOrders() {
 
     if (searchTerm) {
       filtered = filtered.filter(order =>
-        order.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        order.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        order.category.toLowerCase().includes(searchTerm.toLowerCase())
+        order.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        order.title.toLowerCase().includes(searchTerm.toLowerCase())
       );
-    }
-
-    if (categoryFilter !== "all") {
-      filtered = filtered.filter(order => order.category === categoryFilter);
-    }
-
-    if (levelFilter !== "all") {
-      filtered = filtered.filter(order => order.academic_level === levelFilter);
     }
 
     setFilteredOrders(filtered);
   };
 
-  const handleExpressInterest = async (orderId: string) => {
-    try {
-      // This would typically create a bid or expression of interest
+  const handleBidOrder = (order: Order) => {
+    setSelectedOrder(order);
+    setProposedRate(order.budget_usd.toString());
+    setCoverLetter("");
+    setBidDialogOpen(true);
+  };
+
+  const handleSubmitBid = async () => {
+    if (!selectedOrder || !proposedRate) {
       toast({
-        title: "Interest Expressed",
-        description: "Your interest has been recorded. The client will be notified.",
-      });
-    } catch (error) {
-      toast({
-        title: "Error", 
-        description: "Failed to express interest. Please try again.",
+        title: "Error",
+        description: "Please enter a proposed rate",
         variant: "destructive",
       });
+      return;
+    }
+
+    setSubmittingBid(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+
+      const { error } = await supabase
+        .from('bids')
+        .insert({
+          order_id: selectedOrder.id,
+          writer_id: user.id,
+          proposed_rate: parseFloat(proposedRate),
+          cover_letter: coverLetter,
+        });
+
+      if (error) throw error;
+
+      toast({
+        title: "Bid Submitted",
+        description: "Your bid has been submitted successfully. The client will review it shortly.",
+      });
+
+      setBidDialogOpen(false);
+      setSelectedOrder(null);
+      setProposedRate("");
+      setCoverLetter("");
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to submit bid. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setSubmittingBid(false);
     }
   };
 
-  const getAcademicLevelColor = (level: string) => {
-    switch (level) {
-      case 'high_school': return 'bg-blue-100 text-blue-800';
-      case 'undergraduate': return 'bg-green-100 text-green-800';
-      case 'graduate': return 'bg-purple-100 text-purple-800';
-      case 'phd': return 'bg-red-100 text-red-800';
-      default: return 'bg-gray-100 text-gray-800';
-    }
+  const formatAcademicLevel = (level: string) => {
+    return level.split('_').map(word => 
+      word.charAt(0).toUpperCase() + word.slice(1)
+    ).join(' ');
   };
 
   const formatDeadline = (deadline: string) => {
     const date = new Date(deadline);
     const now = new Date();
     const diffTime = date.getTime() - now.getTime();
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    const diffHours = Math.floor(diffTime / (1000 * 60 * 60));
+    const diffDays = Math.floor(diffHours / 24);
+    const remainingHours = diffHours % 24;
+    const remainingMinutes = Math.floor((diffTime % (1000 * 60 * 60)) / (1000 * 60));
     
-    if (diffDays < 0) return "Overdue";
-    if (diffDays === 0) return "Today";
-    if (diffDays === 1) return "Tomorrow";
-    return `${diffDays} days`;
-  };
-
-  const getUniqueCategories = () => {
-    const categories = [...new Set(orders.map(order => order.category))];
-    return categories.sort();
+    if (diffTime < 0) return { text: "Overdue", color: "text-red-600" };
+    if (diffDays === 0) {
+      return { 
+        text: `${diffHours}h ${remainingMinutes}m`, 
+        color: "text-orange-600" 
+      };
+    }
+    if (diffDays < 7) {
+      return { 
+        text: `${diffDays}d ${remainingHours}h`, 
+        color: "text-yellow-600" 
+      };
+    }
+    return { 
+      text: `${diffDays} days`, 
+      color: "text-green-600" 
+    };
   };
 
   if (loading) {
@@ -159,131 +192,159 @@ export default function AvailableOrders() {
     <div className="p-6">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold">Available Orders</h1>
-        <Badge variant="outline" className="text-lg px-3 py-1">
-          {filteredOrders.length} Orders
-        </Badge>
       </div>
 
-      {/* Filters */}
-      <Card className="mb-6">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Filter className="h-5 w-5" />
-            Filters
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="relative">
-              <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search orders..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
-              />
-            </div>
-            
-            <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-              <SelectTrigger>
-                <SelectValue placeholder="Category" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Categories</SelectItem>
-                {getUniqueCategories().map(category => (
-                  <SelectItem key={category} value={category}>
-                    {category}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+      {/* Search Bar */}
+      <div className="mb-6">
+        <div className="relative">
+          <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search by order ID"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-10"
+          />
+        </div>
+      </div>
 
-            <Select value={levelFilter} onValueChange={setLevelFilter}>
-              <SelectTrigger>
-                <SelectValue placeholder="Academic Level" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Levels</SelectItem>
-                <SelectItem value="high_school">High School</SelectItem>
-                <SelectItem value="undergraduate">Undergraduate</SelectItem>
-                <SelectItem value="graduate">Graduate</SelectItem>
-                <SelectItem value="phd">PhD</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+      {/* Orders Table */}
+      <Card>
+        <CardContent className="p-0">
+          {filteredOrders.length === 0 ? (
+            <div className="text-center py-12">
+              <p className="text-muted-foreground">
+                {orders.length === 0 
+                  ? "No available orders at the moment." 
+                  : "No orders match your search."}
+              </p>
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Order ID</TableHead>
+                  <TableHead>Subject</TableHead>
+                  <TableHead>Type of work</TableHead>
+                  <TableHead>Spacing</TableHead>
+                  <TableHead>Order Total</TableHead>
+                  <TableHead>Pages/Word count</TableHead>
+                  <TableHead>Deadline / time left</TableHead>
+                  <TableHead>Action</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredOrders.map((order) => {
+                  const deadlineInfo = formatDeadline(order.deadline);
+                  return (
+                    <TableRow key={order.id}>
+                      <TableCell className="font-mono text-sm">
+                        {order.id.substring(0, 6)}
+                      </TableCell>
+                      <TableCell>
+                        <div className="max-w-xs">
+                          <div className="font-medium line-clamp-1">{order.title}</div>
+                          <div className="text-sm text-muted-foreground line-clamp-1">
+                            {order.category}
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline">{formatAcademicLevel(order.academic_level)}</Badge>
+                      </TableCell>
+                      <TableCell>{order.referencing_style || 'Double'}</TableCell>
+                      <TableCell className="font-semibold text-green-600">
+                        ${order.budget_usd}
+                      </TableCell>
+                      <TableCell>
+                        {order.pages}p/ {order.words} words
+                      </TableCell>
+                      <TableCell>
+                        <div className={deadlineInfo.color}>
+                          {new Date(order.deadline).toLocaleDateString('en-US', {
+                            month: 'short',
+                            day: 'numeric',
+                            hour: 'numeric',
+                            minute: '2-digit',
+                          })} / {deadlineInfo.text}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Button
+                          size="sm"
+                          onClick={() => handleBidOrder(order)}
+                        >
+                          Place Bid
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          )}
         </CardContent>
       </Card>
 
-      {/* Orders Grid */}
-      {filteredOrders.length === 0 ? (
-        <Card>
-          <CardContent className="text-center py-12">
-            <FileText className="h-16 w-16 mx-auto mb-4 opacity-50" />
-            <h3 className="text-lg font-semibold mb-2">No Orders Found</h3>
-            <p className="text-muted-foreground">
-              {orders.length === 0 
-                ? "There are no available orders at the moment." 
-                : "No orders match your current filters."}
-            </p>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {filteredOrders.map((order) => (
-            <Card key={order.id} className="hover:shadow-md transition-shadow">
-              <CardHeader>
-                <div className="flex justify-between items-start mb-2">
-                  <CardTitle className="text-lg line-clamp-2">{order.title}</CardTitle>
-                  <div className="text-right">
-                    <div className="text-2xl font-bold text-green-600">${order.budget_usd}</div>
-                    <div className="text-sm text-muted-foreground">Budget</div>
-                  </div>
-                </div>
-                
-                <div className="flex flex-wrap gap-2">
-                  <Badge className={getAcademicLevelColor(order.academic_level)}>
-                    {order.academic_level.replace('_', ' ')}
-                  </Badge>
-                  <Badge variant="outline">{order.category}</Badge>
-                </div>
-              </CardHeader>
-              
-              <CardContent>
-                <CardDescription className="mb-4 line-clamp-3">
-                  {order.description}
-                </CardDescription>
-                
-                <div className="grid grid-cols-2 gap-4 mb-4 text-sm">
-                  <div className="flex items-center gap-2">
-                    <FileText className="h-4 w-4 text-muted-foreground" />
-                    <span>{order.words} words / {order.pages} pages</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Calendar className="h-4 w-4 text-muted-foreground" />
-                    <span>{formatDeadline(order.deadline)}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <User className="h-4 w-4 text-muted-foreground" />
-                    <span>{order.profiles.full_name}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Clock className="h-4 w-4 text-muted-foreground" />
-                    <span>{new Date(order.created_at).toLocaleDateString()}</span>
-                  </div>
-                </div>
-                
-                <Button 
-                  className="w-full" 
-                  variant="writer"
-                  onClick={() => handleExpressInterest(order.id)}
-                >
-                  Express Interest
-                </Button>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      )}
+      {/* Bid Dialog */}
+      <Dialog open={bidDialogOpen} onOpenChange={setBidDialogOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Place a Bid</DialogTitle>
+            <DialogDescription>
+              Submit your bid for: {selectedOrder?.title}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label className="text-sm text-muted-foreground">Budget</Label>
+                <p className="text-lg font-semibold text-green-600">
+                  ${selectedOrder?.budget_usd}
+                </p>
+              </div>
+              <div>
+                <Label className="text-sm text-muted-foreground">Deadline</Label>
+                <p className="text-lg font-semibold">
+                  {selectedOrder && new Date(selectedOrder.deadline).toLocaleDateString()}
+                </p>
+              </div>
+            </div>
+
+            <div>
+              <Label htmlFor="proposedRate">Your Proposed Rate ($)*</Label>
+              <Input
+                id="proposedRate"
+                type="number"
+                step="0.01"
+                value={proposedRate}
+                onChange={(e) => setProposedRate(e.target.value)}
+                placeholder="Enter your rate"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="coverLetter">Cover Letter (Optional)</Label>
+              <Textarea
+                id="coverLetter"
+                value={coverLetter}
+                onChange={(e) => setCoverLetter(e.target.value)}
+                placeholder="Explain why you're the best fit for this order..."
+                rows={5}
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setBidDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleSubmitBid} disabled={submittingBid}>
+              {submittingBid ? "Submitting..." : "Submit Bid"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

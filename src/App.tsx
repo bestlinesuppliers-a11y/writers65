@@ -25,6 +25,7 @@ import WriterSubmissions from "./pages/writer/WriterSubmissions";
 import WriterMessages from "./pages/writer/WriterMessages";
 import WriterEarnings from "./pages/writer/WriterEarnings";
 import WriterProfile from "./pages/writer/WriterProfile";
+import MyBids from "./pages/writer/MyBids";
 import ClientLayout from "./pages/client/ClientLayout";
 import ClientDashboard from "./pages/client/ClientDashboard";
 import PlaceOrder from "./pages/client/PlaceOrder";
@@ -63,6 +64,7 @@ const App = () => (
           <Route path="/writer" element={<WriterLayout />}>
             <Route index element={<WriterDashboard />} />
             <Route path="orders" element={<AvailableOrders />} />
+            <Route path="bids" element={<MyBids />} />
             <Route path="assignments" element={<WriterAssignments />} />
             <Route path="submissions" element={<WriterSubmissions />} />
             <Route path="messages" element={<WriterMessages />} />

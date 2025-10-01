@@ -1,157 +1,206 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Link } from "react-router-dom";
-import {
-  FileText,
-  DollarSign,
-  Clock,
-  CheckCircle,
-  AlertCircle,
-  TrendingUp,
-  Star,
-  MessageSquare,
-} from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { useToast } from "@/hooks/use-toast";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Search } from "lucide-react";
 
-interface WriterStats {
-  totalAssignments: number;
-  activeOrders: number;
-  completedOrders: number;
-  totalEarnings: number;
-  averageRating: number;
-  pendingSubmissions: number;
-  unreadMessages: number;
+interface Order {
+  id: string;
+  title: string;
+  description: string;
+  category: string;
+  academic_level: string;
+  words: number;
+  pages: number;
+  budget_usd: number;
+  deadline: string;
+  created_at: string;
+  referencing_style: string;
+  profiles: {
+    full_name: string;
+  };
+}
+
+interface UserProfile {
+  full_name: string;
+  email: string;
 }
 
 export default function WriterDashboard() {
-  const [stats, setStats] = useState<WriterStats>({
-    totalAssignments: 0,
-    activeOrders: 0,
-    completedOrders: 0,
-    totalEarnings: 0,
-    averageRating: 0,
-    pendingSubmissions: 0,
-    unreadMessages: 0,
-  });
-  const [recentAssignments, setRecentAssignments] = useState<any[]>([]);
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [filteredOrders, setFilteredOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
-  const [writerProfile, setWriterProfile] = useState<any>(null);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [bidDialogOpen, setBidDialogOpen] = useState(false);
+  const [proposedRate, setProposedRate] = useState("");
+  const [coverLetter, setCoverLetter] = useState("");
+  const [submittingBid, setSubmittingBid] = useState(false);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const { toast } = useToast();
 
   useEffect(() => {
     fetchDashboardData();
   }, []);
+
+  useEffect(() => {
+    filterOrders();
+  }, [orders, searchTerm]);
 
   const fetchDashboardData = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      // Fetch writer profile
+      // Fetch user profile
       const { data: profile } = await supabase
-        .from('writer_profiles')
-        .select('*')
-        .eq('user_id', user.id)
+        .from('profiles')
+        .select('full_name, email')
+        .eq('id', user.id)
         .single();
 
-      setWriterProfile(profile);
+      if (profile) {
+        setUserProfile(profile);
+      }
 
-      // Fetch assignments stats
-      const { data: assignments } = await supabase
-        .from('assignments')
+      // Fetch available orders
+      const { data, error } = await supabase
+        .from('orders')
         .select(`
           *,
-          orders (
-            id,
-            title,
-            budget_usd,
-            deadline,
-            status,
-            client_id,
-            profiles!orders_client_id_fkey (full_name)
-          )
+          profiles!orders_client_id_fkey (full_name)
         `)
-        .eq('writer_id', user.id)
+        .eq('status', 'available')
         .order('created_at', { ascending: false });
 
-      if (assignments) {
-        const activeOrders = assignments.filter(a => a.status === 'active').length;
-        const completedOrders = assignments.filter(a => a.status === 'completed').length;
-        
-        setStats(prev => ({
-          ...prev,
-          totalAssignments: assignments.length,
-          activeOrders,
-          completedOrders,
-        }));
-
-        setRecentAssignments(assignments.slice(0, 5));
-      }
-
-      // Fetch submissions stats
-      const { data: submissions } = await supabase
-        .from('submissions')
-        .select('*')
-        .eq('writer_id', user.id);
-
-      if (submissions) {
-        const pendingSubmissions = submissions.filter(s => s.status === 'pending').length;
-        setStats(prev => ({
-          ...prev,
-          pendingSubmissions,
-        }));
-      }
-
-      // Fetch messages stats
-      const { data: messages } = await supabase
-        .from('messages')
-        .select('*')
-        .eq('to_user_id', user.id)
-        .eq('is_read', false);
-
-      if (messages) {
-        setStats(prev => ({
-          ...prev,
-          unreadMessages: messages.length,
-        }));
-      }
-
-      // Set profile-based stats
-      if (profile) {
-        setStats(prev => ({
-          ...prev,
-          totalEarnings: 0, // This would need to be calculated from completed payments
-          averageRating: profile.rating || 0,
-        }));
-      }
-
+      if (error) throw error;
+      setOrders(data || []);
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
+      toast({
+        title: "Error",
+        description: "Failed to fetch dashboard data.",
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
     }
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'active': return 'bg-green-500';
-      case 'pending_payment': return 'bg-yellow-500';
-      case 'completed': return 'bg-blue-500';
-      case 'available': return 'bg-purple-500';
-      default: return 'bg-gray-500';
+  const filterOrders = () => {
+    let filtered = orders;
+
+    if (searchTerm) {
+      filtered = filtered.filter(order =>
+        order.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        order.title.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    }
+
+    setFilteredOrders(filtered);
+  };
+
+  const handleBidOrder = (order: Order) => {
+    setSelectedOrder(order);
+    setProposedRate(order.budget_usd.toString());
+    setCoverLetter("");
+    setBidDialogOpen(true);
+  };
+
+  const handleSubmitBid = async () => {
+    if (!selectedOrder || !proposedRate) {
+      toast({
+        title: "Error",
+        description: "Please enter a proposed rate",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setSubmittingBid(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+
+      const { error } = await supabase
+        .from('bids')
+        .insert({
+          order_id: selectedOrder.id,
+          writer_id: user.id,
+          proposed_rate: parseFloat(proposedRate),
+          cover_letter: coverLetter,
+        });
+
+      if (error) throw error;
+
+      toast({
+        title: "Bid Submitted",
+        description: "Your bid has been submitted successfully. The client will review it shortly.",
+      });
+
+      setBidDialogOpen(false);
+      setSelectedOrder(null);
+      setProposedRate("");
+      setCoverLetter("");
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to submit bid. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setSubmittingBid(false);
     }
   };
 
-  const getVerificationStatus = () => {
-    if (!writerProfile) return { status: 'Unknown', color: 'bg-gray-500' };
+  const formatAcademicLevel = (level: string) => {
+    return level.split('_').map(word => 
+      word.charAt(0).toUpperCase() + word.slice(1)
+    ).join(' ');
+  };
+
+  const formatDeadline = (deadline: string) => {
+    const date = new Date(deadline);
+    const now = new Date();
+    const diffTime = date.getTime() - now.getTime();
+    const diffHours = Math.floor(diffTime / (1000 * 60 * 60));
+    const diffDays = Math.floor(diffHours / 24);
+    const remainingHours = diffHours % 24;
+    const remainingMinutes = Math.floor((diffTime % (1000 * 60 * 60)) / (1000 * 60));
     
-    switch (writerProfile.verification_status) {
-      case 'verified': return { status: 'Verified', color: 'bg-green-500' };
-      case 'pending': return { status: 'Pending', color: 'bg-yellow-500' };
-      case 'rejected': return { status: 'Rejected', color: 'bg-red-500' };
-      default: return { status: 'Not Submitted', color: 'bg-gray-500' };
+    if (diffTime < 0) return { text: "Overdue", color: "text-red-600" };
+    if (diffDays === 0) {
+      return { 
+        text: `${diffHours}h ${remainingMinutes}m`, 
+        color: "text-orange-600" 
+      };
     }
+    if (diffDays < 7) {
+      return { 
+        text: `${diffDays}d ${remainingHours}h`, 
+        color: "text-yellow-600" 
+      };
+    }
+    return { 
+      text: `${diffDays} days`, 
+      color: "text-green-600" 
+    };
+  };
+
+  const getCurrentTime = () => {
+    const now = new Date();
+    return now.toLocaleTimeString('en-US', { 
+      hour: '2-digit', 
+      minute: '2-digit',
+      hour12: true 
+    });
   };
 
   if (loading) {
@@ -159,175 +208,195 @@ export default function WriterDashboard() {
       <div className="p-6">
         <div className="animate-pulse">
           <div className="h-8 bg-gray-200 rounded w-1/4 mb-6"></div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            {[1, 2, 3, 4].map(i => (
-              <div key={i} className="h-32 bg-gray-200 rounded"></div>
-            ))}
-          </div>
+          <div className="h-64 bg-gray-200 rounded"></div>
         </div>
       </div>
     );
   }
 
-  const verificationStatus = getVerificationStatus();
-
   return (
     <div className="p-6">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold">Writer Dashboard</h1>
-        <div className="flex items-center gap-2">
-          <Badge className={verificationStatus.color}>
-            {verificationStatus.status}
-          </Badge>
-          {writerProfile?.availability && (
-            <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
-              Available for Work
-            </Badge>
+      {/* Header with User Info and Time */}
+      <div className="mb-6 flex justify-between items-center">
+        <div>
+          <h1 className="text-2xl font-bold text-primary mb-1">24 Writers</h1>
+        </div>
+        <div className="text-right">
+          <p className="text-sm text-muted-foreground">Company's time: {getCurrentTime()}</p>
+          <p className="text-sm text-muted-foreground">Your time: {getCurrentTime()}</p>
+        </div>
+        <div className="flex items-center gap-3">
+          {userProfile && (
+            <>
+              <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center text-white font-bold">
+                {userProfile.full_name.charAt(0).toUpperCase()}
+              </div>
+              <span className="font-medium">{userProfile.full_name}</span>
+              <Button variant="outline" size="sm">Sign out</Button>
+            </>
           )}
         </div>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Assignments</CardTitle>
-            <FileText className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.totalAssignments}</div>
-            <p className="text-xs text-muted-foreground">All time</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Active Orders</CardTitle>
-            <Clock className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.activeOrders}</div>
-            <p className="text-xs text-muted-foreground">Currently working on</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Completed Orders</CardTitle>
-            <CheckCircle className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.completedOrders}</div>
-            <p className="text-xs text-muted-foregreen">Successfully finished</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Average Rating</CardTitle>
-            <Star className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.averageRating.toFixed(1)}</div>
-            <p className="text-xs text-muted-foreground">Out of 5.0</p>
-          </CardContent>
-        </Card>
+      {/* Search Bar */}
+      <div className="mb-6">
+        <div className="relative max-w-md">
+          <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search by order ID"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-10"
+          />
+        </div>
       </div>
 
-      {/* Action Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        <Card className="hover:shadow-md transition-shadow">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <AlertCircle className="h-5 w-5 text-yellow-500" />
-              Pending Submissions
-            </CardTitle>
-            <CardDescription>
-              You have {stats.pendingSubmissions} submission(s) awaiting review
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Link to="/writer/submissions">
-              <Button className="w-full">View Submissions</Button>
-            </Link>
-          </CardContent>
-        </Card>
-
-        <Card className="hover:shadow-md transition-shadow">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <MessageSquare className="h-5 w-5 text-blue-500" />
-              Unread Messages
-            </CardTitle>
-            <CardDescription>
-              You have {stats.unreadMessages} unread message(s)
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Link to="/writer/messages">
-              <Button className="w-full" variant="outline">View Messages</Button>
-            </Link>
-          </CardContent>
-        </Card>
-
-        <Card className="hover:shadow-md transition-shadow">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <TrendingUp className="h-5 w-5 text-green-500" />
-              Available Orders
-            </CardTitle>
-            <CardDescription>
-              Browse new orders matching your skills
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Link to="/writer/orders">
-              <Button className="w-full" variant="writer">Browse Orders</Button>
-            </Link>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Recent Assignments */}
+      {/* Orders Table */}
       <Card>
-        <CardHeader>
-          <CardTitle>Recent Assignments</CardTitle>
-          <CardDescription>Your latest assigned orders</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {recentAssignments.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
-              <p>No assignments yet</p>
-              <p className="text-sm">Start by browsing available orders</p>
+        <CardContent className="p-0">
+          {filteredOrders.length === 0 ? (
+            <div className="text-center py-12">
+              <p className="text-muted-foreground">
+                {orders.length === 0 
+                  ? "No available orders at the moment." 
+                  : "No orders match your search."}
+              </p>
             </div>
           ) : (
-            <div className="space-y-4">
-              {recentAssignments.map((assignment) => (
-                <div key={assignment.id} className="flex items-center justify-between p-4 border rounded-lg">
-                  <div className="flex-1">
-                    <h4 className="font-semibold">{assignment.orders?.title}</h4>
-                    <p className="text-sm text-muted-foreground">
-                      Client: {assignment.orders?.profiles?.full_name}
-                    </p>
-                    <p className="text-sm text-muted-foreground">
-                      Deadline: {new Date(assignment.due_at).toLocaleDateString()}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Badge className={getStatusColor(assignment.status)}>
-                      {assignment.status}
-                    </Badge>
-                    <span className="font-semibold text-green-600">
-                      ${assignment.orders?.budget_usd}
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
+            <>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Order ID</TableHead>
+                    <TableHead>Subject</TableHead>
+                    <TableHead>Type of work</TableHead>
+                    <TableHead>Spacing</TableHead>
+                    <TableHead>Order Total</TableHead>
+                    <TableHead>Pages/Word count</TableHead>
+                    <TableHead>Deadline / time left</TableHead>
+                    <TableHead>Additional info</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredOrders.map((order) => {
+                    const deadlineInfo = formatDeadline(order.deadline);
+                    return (
+                      <TableRow 
+                        key={order.id}
+                        className="cursor-pointer hover:bg-muted/50"
+                        onClick={() => handleBidOrder(order)}
+                      >
+                        <TableCell className="font-mono text-sm">
+                          {order.id.substring(0, 6)}
+                        </TableCell>
+                        <TableCell>
+                          <div className="max-w-xs">
+                            <div className="font-medium line-clamp-1">{order.title}</div>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline">{formatAcademicLevel(order.academic_level)}</Badge>
+                        </TableCell>
+                        <TableCell>{order.referencing_style || 'Double'}</TableCell>
+                        <TableCell className="font-semibold">
+                          ${order.budget_usd}
+                        </TableCell>
+                        <TableCell>
+                          {order.pages}p/ {order.words} words
+                        </TableCell>
+                        <TableCell>
+                          <div>
+                            <div className="text-sm">
+                              {new Date(order.deadline).toLocaleDateString('en-US', {
+                                month: 'short',
+                                day: 'numeric',
+                                hour: 'numeric',
+                                minute: '2-digit',
+                              })}
+                            </div>
+                            <div className={`text-sm font-medium ${deadlineInfo.color}`}>
+                              {deadlineInfo.text}
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Button variant="ghost" size="icon">
+                            <Search className="h-4 w-4" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+              <div className="p-4 text-sm text-muted-foreground border-t">
+                Results: one page
+              </div>
+            </>
           )}
         </CardContent>
       </Card>
+
+      {/* Bid Dialog */}
+      <Dialog open={bidDialogOpen} onOpenChange={setBidDialogOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Place a Bid</DialogTitle>
+            <DialogDescription>
+              Submit your bid for: {selectedOrder?.title}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label className="text-sm text-muted-foreground">Budget</Label>
+                <p className="text-lg font-semibold text-green-600">
+                  ${selectedOrder?.budget_usd}
+                </p>
+              </div>
+              <div>
+                <Label className="text-sm text-muted-foreground">Deadline</Label>
+                <p className="text-lg font-semibold">
+                  {selectedOrder && new Date(selectedOrder.deadline).toLocaleDateString()}
+                </p>
+              </div>
+            </div>
+
+            <div>
+              <Label htmlFor="proposedRate">Your Proposed Rate ($)*</Label>
+              <Input
+                id="proposedRate"
+                type="number"
+                step="0.01"
+                value={proposedRate}
+                onChange={(e) => setProposedRate(e.target.value)}
+                placeholder="Enter your rate"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="coverLetter">Cover Letter (Optional)</Label>
+              <Textarea
+                id="coverLetter"
+                value={coverLetter}
+                onChange={(e) => setCoverLetter(e.target.value)}
+                placeholder="Explain why you're the best fit for this order..."
+                rows={5}
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setBidDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleSubmitBid} disabled={submittingBid}>
+              {submittingBid ? "Submitting..." : "Submit Bid"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
