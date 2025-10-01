@@ -253,7 +253,7 @@ export default function ActiveOrders() {
                     View Details
                   </Button>
                   {order.status === 'pending_payment' && (
-                    <Button size="sm">
+                    <Button size="sm" onClick={() => navigate(`/client/payment/${order.id}`)}>
                       Pay Now
                     </Button>
                   )}
