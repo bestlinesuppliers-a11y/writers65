@@ -9,7 +9,9 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Search, Info } from "lucide-react";
+import { Search, Download, FileText } from "lucide-react";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface Order {
   id: string;
@@ -23,6 +25,10 @@ interface Order {
   deadline: string;
   created_at: string;
   referencing_style: string;
+  status: string;
+  sources: number;
+  attachments: string[];
+  instructions: string;
   profiles: {
     full_name: string;
   };
@@ -34,9 +40,13 @@ export default function AvailableOrders() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [orderDetailsOpen, setOrderDetailsOpen] = useState(false);
   const [bidDialogOpen, setBidDialogOpen] = useState(false);
-  const [proposedRate, setProposedRate] = useState("");
-  const [coverLetter, setCoverLetter] = useState("");
+  const [pricePerPageDollars, setPricePerPageDollars] = useState("");
+  const [pricePerPageCents, setPricePerPageCents] = useState("");
+  const [timeNeededDays, setTimeNeededDays] = useState("");
+  const [timeNeededHours, setTimeNeededHours] = useState("");
+  const [bidMessage, setBidMessage] = useState("");
   const [submittingBid, setSubmittingBid] = useState(false);
   const { toast } = useToast();
 
@@ -86,18 +96,26 @@ export default function AvailableOrders() {
     setFilteredOrders(filtered);
   };
 
-  const handleBidOrder = (order: Order) => {
+  const handleOrderClick = (order: Order) => {
     setSelectedOrder(order);
-    setProposedRate(order.budget_usd.toString());
-    setCoverLetter("");
+    setOrderDetailsOpen(true);
+  };
+
+  const handleBidOrder = () => {
+    setOrderDetailsOpen(false);
+    setPricePerPageDollars("");
+    setPricePerPageCents("");
+    setTimeNeededDays("");
+    setTimeNeededHours("");
+    setBidMessage("");
     setBidDialogOpen(true);
   };
 
   const handleSubmitBid = async () => {
-    if (!selectedOrder || !proposedRate) {
+    if (!selectedOrder || !pricePerPageDollars || !timeNeededDays) {
       toast({
         title: "Error",
-        description: "Please enter a proposed rate",
+        description: "Please fill in all required fields",
         variant: "destructive",
       });
       return;
@@ -108,26 +126,35 @@ export default function AvailableOrders() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
+      const pricePerPage = parseFloat(pricePerPageDollars) + (parseFloat(pricePerPageCents || "0") / 100);
+      const totalPrice = pricePerPage * selectedOrder.pages;
+
       const { error } = await supabase
         .from('bids')
         .insert({
           order_id: selectedOrder.id,
           writer_id: user.id,
-          proposed_rate: parseFloat(proposedRate),
-          cover_letter: coverLetter,
+          price_per_page: pricePerPage,
+          proposed_rate: totalPrice,
+          time_needed_days: parseInt(timeNeededDays),
+          time_needed_hours: parseInt(timeNeededHours || "0"),
+          cover_letter: bidMessage,
         });
 
       if (error) throw error;
 
       toast({
         title: "Bid Submitted",
-        description: "Your bid has been submitted successfully. The client will review it shortly.",
+        description: "Your bid has been submitted successfully.",
       });
 
       setBidDialogOpen(false);
       setSelectedOrder(null);
-      setProposedRate("");
-      setCoverLetter("");
+      setPricePerPageDollars("");
+      setPricePerPageCents("");
+      setTimeNeededDays("");
+      setTimeNeededHours("");
+      setBidMessage("");
     } catch (error: any) {
       toast({
         title: "Error",
@@ -136,6 +163,28 @@ export default function AvailableOrders() {
       });
     } finally {
       setSubmittingBid(false);
+    }
+  };
+
+  const downloadAttachment = async (url: string, filename: string) => {
+    try {
+      const { data, error } = await supabase.storage
+        .from('order-attachments')
+        .download(url);
+
+      if (error) throw error;
+
+      const blob = new Blob([data]);
+      const link = document.createElement('a');
+      link.href = window.URL.createObjectURL(blob);
+      link.download = filename;
+      link.click();
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to download attachment",
+        variant: "destructive",
+      });
     }
   };
 
@@ -226,17 +275,19 @@ export default function AvailableOrders() {
                   <TableHead>Subject</TableHead>
                   <TableHead>Type of work</TableHead>
                   <TableHead>Spacing</TableHead>
-                  <TableHead>Order Total</TableHead>
                   <TableHead>Pages/Word count</TableHead>
                   <TableHead>Deadline / time left</TableHead>
-                  <TableHead>Action</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredOrders.map((order) => {
                   const deadlineInfo = formatDeadline(order.deadline);
                   return (
-                    <TableRow key={order.id}>
+                    <TableRow 
+                      key={order.id}
+                      className="cursor-pointer hover:bg-muted/50"
+                      onClick={() => handleOrderClick(order)}
+                    >
                       <TableCell className="font-mono text-sm">
                         {order.id.substring(0, 6)}
                       </TableCell>
@@ -252,9 +303,6 @@ export default function AvailableOrders() {
                         <Badge variant="outline">{formatAcademicLevel(order.academic_level)}</Badge>
                       </TableCell>
                       <TableCell>{order.referencing_style || 'Double'}</TableCell>
-                      <TableCell className="font-semibold text-green-600">
-                        ${order.budget_usd}
-                      </TableCell>
                       <TableCell>
                         {order.pages}p/ {order.words} words
                       </TableCell>
@@ -268,14 +316,6 @@ export default function AvailableOrders() {
                           })} / {deadlineInfo.text}
                         </div>
                       </TableCell>
-                      <TableCell>
-                        <Button
-                          size="sm"
-                          onClick={() => handleBidOrder(order)}
-                        >
-                          Place Bid
-                        </Button>
-                      </TableCell>
                     </TableRow>
                   );
                 })}
@@ -285,62 +325,195 @@ export default function AvailableOrders() {
         </CardContent>
       </Card>
 
+      {/* Order Details Sheet */}
+      <Sheet open={orderDetailsOpen} onOpenChange={setOrderDetailsOpen}>
+        <SheetContent side="right" className="w-full sm:max-w-lg overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle>Order Details</SheetTitle>
+          </SheetHeader>
+          
+          {selectedOrder && (
+            <div className="space-y-6 py-6">
+              <div className="flex justify-between items-start">
+                <div>
+                  <p className="text-sm text-muted-foreground">Order ID</p>
+                  <p className="font-mono">{selectedOrder.id.substring(0, 6)}</p>
+                </div>
+                <Badge>{selectedOrder.status}</Badge>
+              </div>
+
+              <div>
+                <p className="text-sm text-muted-foreground mb-1">Pages</p>
+                <p className="font-medium">{selectedOrder.pages} Double spaced ({selectedOrder.words} words)</p>
+              </div>
+
+              <div>
+                <p className="text-sm text-muted-foreground mb-1">Style and sources</p>
+                <p className="font-medium">{selectedOrder.referencing_style || 'APA7'}, {selectedOrder.sources} source</p>
+              </div>
+
+              <div>
+                <p className="text-sm text-muted-foreground mb-1">Study level</p>
+                <p className="font-medium">{formatAcademicLevel(selectedOrder.academic_level)}</p>
+              </div>
+
+              <div>
+                <p className="text-sm text-muted-foreground mb-1">Assignment type</p>
+                <p className="font-medium">{selectedOrder.category}</p>
+              </div>
+
+              <div>
+                <p className="text-sm text-muted-foreground mb-1">Subject</p>
+                <p className="font-medium">{selectedOrder.title}</p>
+              </div>
+
+              <div>
+                <p className="text-sm text-muted-foreground mb-1">Deadline</p>
+                <p className="font-medium">
+                  {new Date(selectedOrder.deadline).toLocaleDateString('en-US', {
+                    month: 'short',
+                    day: 'numeric',
+                    hour: 'numeric',
+                    minute: '2-digit',
+                  })}
+                </p>
+              </div>
+
+              {selectedOrder.attachments && selectedOrder.attachments.length > 0 && (
+                <div>
+                  <p className="text-sm text-muted-foreground mb-2">Attachments</p>
+                  <div className="space-y-2">
+                    {selectedOrder.attachments.map((attachment, index) => (
+                      <Button
+                        key={index}
+                        variant="outline"
+                        size="sm"
+                        className="w-full justify-between"
+                        onClick={() => downloadAttachment(attachment, `attachment-${index + 1}`)}
+                      >
+                        <span className="flex items-center gap-2">
+                          <FileText className="h-4 w-4" />
+                          Attachment {index + 1}
+                        </span>
+                        <Download className="h-4 w-4" />
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div>
+                <p className="text-sm text-muted-foreground mb-2">Writing instructions</p>
+                <div className="bg-muted p-4 rounded-lg">
+                  <p className="text-sm whitespace-pre-wrap">{selectedOrder.instructions || selectedOrder.description}</p>
+                </div>
+              </div>
+
+              <Button 
+                className="w-full bg-orange-500 hover:bg-orange-600" 
+                onClick={handleBidOrder}
+              >
+                Apply to work
+              </Button>
+            </div>
+          )}
+        </SheetContent>
+      </Sheet>
+
       {/* Bid Dialog */}
       <Dialog open={bidDialogOpen} onOpenChange={setBidDialogOpen}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>Place a Bid</DialogTitle>
+            <DialogTitle>Apply to work on order</DialogTitle>
             <DialogDescription>
-              Submit your bid for: {selectedOrder?.title}
+              Let us know the time you need to finish the order and the price per page you expect. Support can assign you the order anytime unless you withdraw your bid.
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 py-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label className="text-sm text-muted-foreground">Budget</Label>
-                <p className="text-lg font-semibold text-green-600">
-                  ${selectedOrder?.budget_usd}
-                </p>
-              </div>
-              <div>
-                <Label className="text-sm text-muted-foreground">Deadline</Label>
-                <p className="text-lg font-semibold">
-                  {selectedOrder && new Date(selectedOrder.deadline).toLocaleDateString()}
-                </p>
+            <div>
+              <Label className="mb-2 block">Price per page</Label>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <Label className="text-xs text-muted-foreground">US dollars</Label>
+                  <Select value={pricePerPageDollars} onValueChange={setPricePerPageDollars}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="-" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Array.from({ length: 51 }, (_, i) => i).map(i => (
+                        <SelectItem key={i} value={i.toString()}>{i}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label className="text-xs text-muted-foreground">US cents</Label>
+                  <Select value={pricePerPageCents} onValueChange={setPricePerPageCents}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="-" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {['00', '25', '50', '75'].map(cents => (
+                        <SelectItem key={cents} value={cents}>{cents}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
             </div>
 
             <div>
-              <Label htmlFor="proposedRate">Your Proposed Rate ($)*</Label>
-              <Input
-                id="proposedRate"
-                type="number"
-                step="0.01"
-                value={proposedRate}
-                onChange={(e) => setProposedRate(e.target.value)}
-                placeholder="Enter your rate"
-              />
+              <Label className="mb-2 block">Time you need</Label>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <Label className="text-xs text-muted-foreground">Days</Label>
+                  <Select value={timeNeededDays} onValueChange={setTimeNeededDays}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="-" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Array.from({ length: 31 }, (_, i) => i).map(i => (
+                        <SelectItem key={i} value={i.toString()}>{i}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label className="text-xs text-muted-foreground">Hours</Label>
+                  <Select value={timeNeededHours} onValueChange={setTimeNeededHours}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="-" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Array.from({ length: 24 }, (_, i) => i).map(i => (
+                        <SelectItem key={i} value={i.toString()}>{i}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
             </div>
 
             <div>
-              <Label htmlFor="coverLetter">Cover Letter (Optional)</Label>
+              <Label htmlFor="bidMessage">Message</Label>
               <Textarea
-                id="coverLetter"
-                value={coverLetter}
-                onChange={(e) => setCoverLetter(e.target.value)}
-                placeholder="Explain why you're the best fit for this order..."
-                rows={5}
+                id="bidMessage"
+                value={bidMessage}
+                onChange={(e) => setBidMessage(e.target.value)}
+                placeholder="I consider my bid reasonable because this order requires calculations / use of formulas / deep understanding of ... / skills in ... Thank you."
+                rows={4}
               />
             </div>
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setBidDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleSubmitBid} disabled={submittingBid}>
-              {submittingBid ? "Submitting..." : "Submit Bid"}
+            <Button 
+              className="w-full bg-orange-500 hover:bg-orange-600" 
+              onClick={handleSubmitBid} 
+              disabled={submittingBid}
+            >
+              {submittingBid ? "Submitting..." : "Apply to work"}
             </Button>
           </DialogFooter>
         </DialogContent>

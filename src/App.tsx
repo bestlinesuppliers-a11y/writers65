@@ -13,10 +13,11 @@ import Contact from "./pages/Contact";
 import NotFound from "./pages/NotFound";
 import AdminLayout from "./pages/admin/AdminLayout";
 import AdminDashboard from "./pages/admin/AdminDashboard";
-import UsersManagement from "./pages/admin/UsersManagement";
-import WritersManagement from "./pages/admin/WritersManagement";
 import OrdersManagement from "./pages/admin/OrdersManagement";
+import WritersManagement from "./pages/admin/WritersManagement";
 import PaymentsManagement from "./pages/admin/PaymentsManagement";
+import UsersManagement from "./pages/admin/UsersManagement";
+import BidsManagement from "./pages/admin/BidsManagement";
 import WriterLayout from "./pages/writer/WriterLayout";
 import WriterDashboard from "./pages/writer/WriterDashboard";
 import AvailableOrders from "./pages/writer/AvailableOrders";
@@ -57,6 +58,7 @@ const App = () => (
             <Route path="users" element={<UsersManagement />} />
             <Route path="writers" element={<WritersManagement />} />
             <Route path="orders" element={<OrdersManagement />} />
+            <Route path="bids" element={<BidsManagement />} />
             <Route path="payments" element={<PaymentsManagement />} />
           </Route>
           

@@ -68,9 +68,12 @@ export type Database = {
           created_at: string | null
           id: string
           order_id: string
-          proposed_rate: number
+          price_per_page: number | null
+          proposed_rate: number | null
           reviewed_at: string | null
           status: string
+          time_needed_days: number | null
+          time_needed_hours: number | null
           updated_at: string | null
           writer_id: string
         }
@@ -79,9 +82,12 @@ export type Database = {
           created_at?: string | null
           id?: string
           order_id: string
-          proposed_rate: number
+          price_per_page?: number | null
+          proposed_rate?: number | null
           reviewed_at?: string | null
           status?: string
+          time_needed_days?: number | null
+          time_needed_hours?: number | null
           updated_at?: string | null
           writer_id: string
         }
@@ -90,9 +96,12 @@ export type Database = {
           created_at?: string | null
           id?: string
           order_id?: string
-          proposed_rate?: number
+          price_per_page?: number | null
+          proposed_rate?: number | null
           reviewed_at?: string | null
           status?: string
+          time_needed_days?: number | null
+          time_needed_hours?: number | null
           updated_at?: string | null
           writer_id?: string
         }
