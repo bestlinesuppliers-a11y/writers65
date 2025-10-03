@@ -168,9 +168,14 @@ export default function AvailableOrders() {
 
   const downloadAttachment = async (url: string, filename: string) => {
     try {
+      // Extract the actual file path from the full URL if it's a full URL
+      const filePath = url.includes('order-attachments/') 
+        ? url.split('order-attachments/')[1] 
+        : url;
+
       const { data, error } = await supabase.storage
         .from('order-attachments')
-        .download(url);
+        .download(filePath);
 
       if (error) throw error;
 
@@ -179,10 +184,11 @@ export default function AvailableOrders() {
       link.href = window.URL.createObjectURL(blob);
       link.download = filename;
       link.click();
-    } catch (error) {
+    } catch (error: any) {
+      console.error('Download error:', error);
       toast({
         title: "Error",
-        description: "Failed to download attachment",
+        description: error.message || "Failed to download attachment",
         variant: "destructive",
       });
     }

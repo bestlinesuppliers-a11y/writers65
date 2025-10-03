@@ -16,7 +16,6 @@ interface Bid {
   cover_letter: string;
   orders: {
     title: string;
-    budget_usd: number;
     deadline: string;
     category: string;
   };
@@ -43,7 +42,6 @@ export default function MyBids() {
           *,
           orders (
             title,
-            budget_usd,
             deadline,
             category
           )
@@ -140,7 +138,6 @@ export default function MyBids() {
                 <TableRow>
                   <TableHead>Order Title</TableHead>
                   <TableHead>Category</TableHead>
-                  <TableHead>Client Budget</TableHead>
                   <TableHead>Your Bid</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Date Submitted</TableHead>
@@ -158,9 +155,6 @@ export default function MyBids() {
                       </div>
                     </TableCell>
                     <TableCell>{bid.orders.category}</TableCell>
-                    <TableCell className="text-muted-foreground">
-                      ${bid.orders.budget_usd}
-                    </TableCell>
                     <TableCell className="font-semibold text-green-600">
                       ${bid.proposed_rate}
                     </TableCell>
