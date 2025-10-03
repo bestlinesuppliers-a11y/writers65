@@ -29,6 +29,10 @@ interface Bid {
     attachments: string[];
     instructions: string;
     description: string;
+    academic_level: string;
+    referencing_style: string;
+    sources: number;
+    status: string;
   };
   profiles: {
     full_name: string;
@@ -62,7 +66,11 @@ export default function BidsManagement() {
             deadline,
             attachments,
             instructions,
-            description
+            description,
+            academic_level,
+            referencing_style,
+            sources,
+            status
           ),
           writer:profiles!bids_writer_id_fkey (
             full_name,
@@ -290,8 +298,18 @@ export default function BidsManagement() {
               </div>
 
               <div>
+                <p className="text-sm text-muted-foreground mb-1">Academic Level</p>
+                <p className="font-medium capitalize">{selectedBid.orders.academic_level?.replace(/_/g, ' ')}</p>
+              </div>
+
+              <div>
                 <p className="text-sm text-muted-foreground mb-1">Pages/Words</p>
                 <p className="font-medium">{selectedBid.orders.pages}p / {selectedBid.orders.words} words</p>
+              </div>
+
+              <div>
+                <p className="text-sm text-muted-foreground mb-1">Referencing Style & Sources</p>
+                <p className="font-medium">{selectedBid.orders.referencing_style || 'APA7'} - {selectedBid.orders.sources} sources</p>
               </div>
 
               {selectedBid.orders.attachments && selectedBid.orders.attachments.length > 0 && (
