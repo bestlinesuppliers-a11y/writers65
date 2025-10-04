@@ -33,6 +33,8 @@ import PlaceOrder from "./pages/client/PlaceOrder";
 import Payment from "./pages/client/Payment";
 import ActiveOrders from "./pages/client/ActiveOrders";
 import CompletedOrders from "./pages/client/CompletedOrders";
+import ClientMessages from "./pages/client/ClientMessages";
+import AdminMessages from "./pages/admin/AdminMessages";
 
 const queryClient = new QueryClient();
 
@@ -60,6 +62,7 @@ const App = () => (
             <Route path="orders" element={<OrdersManagement />} />
             <Route path="bids" element={<BidsManagement />} />
             <Route path="payments" element={<PaymentsManagement />} />
+            <Route path="messages" element={<AdminMessages />} />
           </Route>
           
           {/* Writer Routes */}
@@ -83,7 +86,7 @@ const App = () => (
             <Route path="completed" element={<CompletedOrders />} />
             <Route path="payment/:orderId" element={<Payment />} />
             <Route path="payments" element={<div className="p-6">Payments - Coming Soon</div>} />
-            <Route path="messages" element={<div className="p-6">Messages - Coming Soon</div>} />
+            <Route path="messages" element={<ClientMessages />} />
             <Route path="profile" element={<div className="p-6">Profile - Coming Soon</div>} />
           </Route>
           

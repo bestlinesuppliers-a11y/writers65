@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { toast } from "@/hooks/use-toast";
-import { Send, MessageCircle, Search, Clock, User } from "lucide-react";
+import { Send, MessageCircle, Search, Clock, User, Upload, Paperclip } from "lucide-react";
 import { format } from "date-fns";
 
 interface Message {
@@ -36,6 +36,7 @@ export default function WriterMessages() {
   const [replyText, setReplyText] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(true);
+  const [attachments, setAttachments] = useState<File[]>([]);
 
   useEffect(() => {
     fetchMessages();
@@ -83,12 +84,40 @@ export default function WriterMessages() {
     }
   };
 
+  const uploadAttachments = async (userId: string): Promise<string[]> => {
+    const uploadedPaths: string[] = [];
+
+    for (const file of attachments) {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${userId}/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("message-attachments")
+        .upload(fileName, file);
+
+      if (uploadError) {
+        console.error("Upload error:", uploadError);
+        throw uploadError;
+      }
+
+      uploadedPaths.push(fileName);
+    }
+
+    return uploadedPaths;
+  };
+
   const sendReply = async () => {
     if (!selectedMessage || !replyText.trim()) return;
 
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
+
+      let attachmentPaths: string[] = [];
+      
+      if (attachments.length > 0) {
+        attachmentPaths = await uploadAttachments(user.id);
+      }
 
       const { error } = await supabase
         .from('messages')
@@ -98,6 +127,7 @@ export default function WriterMessages() {
           to_user_id: selectedMessage.from_user_id,
           subject: `Re: ${selectedMessage.subject}`,
           body: replyText,
+          attachments: attachmentPaths,
         });
 
       if (error) throw error;
@@ -108,6 +138,7 @@ export default function WriterMessages() {
       });
 
       setReplyText("");
+      setAttachments([]);
       fetchMessages();
     } catch (error) {
       toast({
@@ -116,6 +147,36 @@ export default function WriterMessages() {
         variant: "destructive",
       });
     }
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      setAttachments(Array.from(e.target.files));
+    }
+  };
+
+  const downloadAttachment = async (path: string) => {
+    const { data, error } = await supabase.storage
+      .from("message-attachments")
+      .download(path);
+
+    if (error) {
+      toast({
+        title: "Error",
+        description: "Failed to download attachment",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const url = URL.createObjectURL(data);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = path.split("/").pop() || "download";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   };
 
   const filteredMessages = messages.filter(message =>
@@ -244,7 +305,13 @@ export default function WriterMessages() {
                     <h4 className="font-medium mb-2">Attachments:</h4>
                     <div className="flex flex-wrap gap-2">
                       {selectedMessage.attachments.map((attachment, index) => (
-                        <Button key={index} variant="outline" size="sm">
+                        <Button 
+                          key={index} 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => downloadAttachment(attachment)}
+                        >
+                          <Paperclip className="h-4 w-4 mr-2" />
                           {attachment.split('/').pop()}
                         </Button>
                       ))}
@@ -252,7 +319,7 @@ export default function WriterMessages() {
                   </div>
                 )}
 
-                <div className="border-t pt-4">
+                <div className="border-t pt-4 space-y-4">
                   <h4 className="font-medium mb-2">Reply:</h4>
                   <Textarea
                     value={replyText}
@@ -260,9 +327,33 @@ export default function WriterMessages() {
                     placeholder="Type your reply..."
                     rows={4}
                   />
+
+                  <div className="space-y-2">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="file"
+                        multiple
+                        onChange={handleFileSelect}
+                        className="hidden"
+                        id="file-upload"
+                      />
+                      <Button variant="outline" size="sm" asChild>
+                        <label htmlFor="file-upload" className="cursor-pointer">
+                          <Upload className="h-4 w-4 mr-2" />
+                          Attach Files
+                        </label>
+                      </Button>
+                    </label>
+                    {attachments.length > 0 && (
+                      <div className="text-sm text-muted-foreground">
+                        {attachments.length} file(s) selected
+                      </div>
+                    )}
+                  </div>
+
                   <Button 
                     onClick={sendReply} 
-                    className="w-full mt-2"
+                    className="w-full"
                     disabled={!replyText.trim()}
                   >
                     <Send className="mr-2 h-4 w-4" />
