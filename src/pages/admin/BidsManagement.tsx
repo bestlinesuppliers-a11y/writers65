@@ -55,10 +55,11 @@ export default function BidsManagement() {
     try {
       console.log('Fetching bids...');
       
-      // First, get all bids
+      // First, get all bids (exclude accepted bids as they become assignments)
       const { data: bidsData, error: bidsError } = await supabase
         .from('bids')
         .select('*')
+        .neq('status', 'accepted')
         .order('created_at', { ascending: false });
 
       if (bidsError) {
