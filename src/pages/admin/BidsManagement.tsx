@@ -53,46 +53,74 @@ export default function BidsManagement() {
 
   const fetchBids = async () => {
     try {
-      const { data, error } = await supabase
+      console.log('Fetching bids...');
+      
+      // First, get all bids
+      const { data: bidsData, error: bidsError } = await supabase
         .from('bids')
-        .select(`
-          *,
-          orders (
-            id,
-            title,
-            category,
-            pages,
-            words,
-            deadline,
-            attachments,
-            instructions,
-            description,
-            academic_level,
-            referencing_style,
-            sources,
-            status
-          ),
-          writer:profiles!bids_writer_id_fkey (
-            full_name,
-            email
-          )
-        `)
+        .select('*')
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
-      
-      // Transform the data to match our interface
-      const transformedData = (data || []).map((bid: any) => ({
-        ...bid,
-        profiles: bid.writer
-      }));
-      
+      if (bidsError) {
+        console.error('Error fetching bids:', bidsError);
+        throw bidsError;
+      }
+
+      console.log('Bids data:', bidsData);
+
+      if (!bidsData || bidsData.length === 0) {
+        setBids([]);
+        return;
+      }
+
+      // Get unique order and writer IDs
+      const orderIds = [...new Set(bidsData.map(bid => bid.order_id))];
+      const writerIds = [...new Set(bidsData.map(bid => bid.writer_id))];
+
+      // Fetch orders
+      const { data: ordersData, error: ordersError } = await supabase
+        .from('orders')
+        .select('*')
+        .in('id', orderIds);
+
+      if (ordersError) {
+        console.error('Error fetching orders:', ordersError);
+        throw ordersError;
+      }
+
+      // Fetch writer profiles
+      const { data: profilesData, error: profilesError } = await supabase
+        .from('profiles')
+        .select('id, full_name, email')
+        .in('id', writerIds);
+
+      if (profilesError) {
+        console.error('Error fetching profiles:', profilesError);
+        throw profilesError;
+      }
+
+      console.log('Orders data:', ordersData);
+      console.log('Profiles data:', profilesData);
+
+      // Combine the data
+      const transformedData: Bid[] = bidsData.map(bid => {
+        const order = ordersData?.find(order => order.id === bid.order_id);
+        const profile = profilesData?.find(profile => profile.id === bid.writer_id);
+        
+        return {
+          ...bid,
+          orders: order as any,
+          profiles: profile || { full_name: 'Unknown', email: 'N/A' }
+        } as Bid;
+      });
+
+      console.log('Transformed bids:', transformedData);
       setBids(transformedData);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching bids:', error);
       toast({
         title: "Error",
-        description: "Failed to fetch bids.",
+        description: error.message || "Failed to fetch bids.",
         variant: "destructive",
       });
     } finally {
