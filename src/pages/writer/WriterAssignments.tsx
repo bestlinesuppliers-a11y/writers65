@@ -61,7 +61,7 @@ export default function WriterAssignments() {
           *,
           orders (
             *,
-            profiles!orders_client_id_fkey (full_name, email)
+            profiles:client_id (full_name, email)
           )
         `)
         .eq('writer_id', user.id)
@@ -69,11 +69,11 @@ export default function WriterAssignments() {
 
       if (error) throw error;
       setAssignments(data || []);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching assignments:', error);
       toast({
         title: "Error",
-        description: "Failed to fetch assignments.",
+        description: error.message || "Failed to fetch assignments.",
         variant: "destructive",
       });
     } finally {
