@@ -48,6 +48,7 @@ export default function MyBids() {
         `)
         .eq('writer_id', user.id)
         .neq('status', 'accepted')
+        .neq('status', 'rejected')
         .order('created_at', { ascending: false });
 
       if (error) throw error;

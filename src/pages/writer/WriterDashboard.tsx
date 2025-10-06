@@ -44,6 +44,8 @@ export default function WriterDashboard() {
   const [coverLetter, setCoverLetter] = useState("");
   const [submittingBid, setSubmittingBid] = useState(false);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [existingBid, setExistingBid] = useState<any>(null);
+  const [isEditMode, setIsEditMode] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -107,11 +109,47 @@ export default function WriterDashboard() {
     setFilteredOrders(filtered);
   };
 
-  const handleBidOrder = (order: Order) => {
-    setSelectedOrder(order);
-    setProposedRate(order.budget_usd.toString());
-    setCoverLetter("");
-    setBidDialogOpen(true);
+  const handleBidOrder = async (order: Order) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      // Check if writer already has a bid for this order
+      const { data: existingBids, error } = await supabase
+        .from('bids')
+        .select('*')
+        .eq('order_id', order.id)
+        .eq('writer_id', user.id)
+        .neq('status', 'rejected')
+        .neq('status', 'withdrawn');
+
+      if (error) throw error;
+
+      if (existingBids && existingBids.length > 0) {
+        // Edit existing bid
+        const bid = existingBids[0];
+        setExistingBid(bid);
+        setIsEditMode(true);
+        setProposedRate(bid.proposed_rate?.toString() || order.budget_usd.toString());
+        setCoverLetter(bid.cover_letter || "");
+      } else {
+        // Create new bid
+        setExistingBid(null);
+        setIsEditMode(false);
+        setProposedRate(order.budget_usd.toString());
+        setCoverLetter("");
+      }
+
+      setSelectedOrder(order);
+      setBidDialogOpen(true);
+    } catch (error) {
+      console.error('Error checking existing bids:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load bid information",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleSubmitBid = async () => {
@@ -129,30 +167,52 @@ export default function WriterDashboard() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
-      const { error } = await supabase
-        .from('bids')
-        .insert({
-          order_id: selectedOrder.id,
-          writer_id: user.id,
-          proposed_rate: parseFloat(proposedRate),
-          cover_letter: coverLetter,
+      if (isEditMode && existingBid) {
+        // Update existing bid
+        const { error } = await supabase
+          .from('bids')
+          .update({
+            proposed_rate: parseFloat(proposedRate),
+            cover_letter: coverLetter,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', existingBid.id);
+
+        if (error) throw error;
+
+        toast({
+          title: "Bid Updated",
+          description: "Your bid has been updated successfully.",
         });
+      } else {
+        // Create new bid
+        const { error } = await supabase
+          .from('bids')
+          .insert({
+            order_id: selectedOrder.id,
+            writer_id: user.id,
+            proposed_rate: parseFloat(proposedRate),
+            cover_letter: coverLetter,
+          });
 
-      if (error) throw error;
+        if (error) throw error;
 
-      toast({
-        title: "Bid Submitted",
-        description: "Your bid has been submitted successfully. The client will review it shortly.",
-      });
+        toast({
+          title: "Bid Submitted",
+          description: "Your bid has been submitted successfully. The client will review it shortly.",
+        });
+      }
 
       setBidDialogOpen(false);
       setSelectedOrder(null);
       setProposedRate("");
       setCoverLetter("");
+      setExistingBid(null);
+      setIsEditMode(false);
     } catch (error: any) {
       toast({
         title: "Error",
-        description: error.message || "Failed to submit bid. Please try again.",
+        description: error.message || `Failed to ${isEditMode ? 'update' : 'submit'} bid. Please try again.`,
         variant: "destructive",
       });
     } finally {
@@ -339,9 +399,9 @@ export default function WriterDashboard() {
       <Dialog open={bidDialogOpen} onOpenChange={setBidDialogOpen}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Place a Bid</DialogTitle>
+            <DialogTitle>{isEditMode ? 'Edit Your Bid' : 'Place a Bid'}</DialogTitle>
             <DialogDescription>
-              Submit your bid for: {selectedOrder?.title}
+              {isEditMode ? 'Update your bid for: ' : 'Submit your bid for: '}{selectedOrder?.title}
             </DialogDescription>
           </DialogHeader>
 
@@ -390,7 +450,7 @@ export default function WriterDashboard() {
               Cancel
             </Button>
             <Button onClick={handleSubmitBid} disabled={submittingBid}>
-              {submittingBid ? "Submitting..." : "Submit Bid"}
+              {submittingBid ? (isEditMode ? "Updating..." : "Submitting...") : (isEditMode ? "Update Bid" : "Submit Bid")}
             </Button>
           </DialogFooter>
         </DialogContent>
