@@ -320,9 +320,7 @@ export default function WriterDashboard() {
                           </div>
                         </TableCell>
                         <TableCell>
-                          <Button variant="ghost" size="icon">
-                            <Search className="h-4 w-4" />
-                          </Button>
+                          {/* Additional info column - removed search icon */}
                         </TableCell>
                       </TableRow>
                     );
