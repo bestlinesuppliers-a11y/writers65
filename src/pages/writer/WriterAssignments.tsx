@@ -37,6 +37,11 @@ interface Assignment {
       email: string;
     };
   };
+  bids: {
+    proposed_rate: number;
+    time_needed_days: number;
+    time_needed_hours: number;
+  }[];
 }
 
 export default function WriterAssignments() {
@@ -68,7 +73,27 @@ export default function WriterAssignments() {
         .order('assigned_at', { ascending: false });
 
       if (error) throw error;
-      setAssignments(data || []);
+
+      // Fetch the accepted bids for these assignments
+      if (data && data.length > 0) {
+        const orderIds = data.map(a => a.order_id);
+        const { data: bidsData } = await supabase
+          .from('bids')
+          .select('order_id, proposed_rate, time_needed_days, time_needed_hours')
+          .in('order_id', orderIds)
+          .eq('writer_id', user.id)
+          .eq('status', 'accepted');
+
+        // Merge bid data with assignments
+        const assignmentsWithBids = data.map(assignment => ({
+          ...assignment,
+          bids: bidsData?.filter(b => b.order_id === assignment.order_id) || []
+        }));
+
+        setAssignments(assignmentsWithBids);
+      } else {
+        setAssignments([]);
+      }
     } catch (error: any) {
       console.error('Error fetching assignments:', error);
       toast({
@@ -184,9 +209,9 @@ export default function WriterAssignments() {
                     </div>
                     <div className="text-right">
                       <div className="text-2xl font-bold text-green-600">
-                        ${assignment.orders.budget_usd}
+                        ${assignment.bids[0]?.proposed_rate || assignment.orders.budget_usd}
                       </div>
-                      <div className="text-sm text-muted-foreground">Payment</div>
+                      <div className="text-sm text-muted-foreground">Your Bid Amount</div>
                     </div>
                   </div>
                 </CardHeader>
@@ -206,7 +231,10 @@ export default function WriterAssignments() {
                         </div>
                         <div className="flex items-center gap-2">
                           <Calendar className="h-4 w-4 text-muted-foreground" />
-                          <span>Due: {new Date(assignment.due_at).toLocaleString()}</span>
+                          <span>
+                            Your Timeline: {assignment.bids[0]?.time_needed_days || 0} days{' '}
+                            {assignment.bids[0]?.time_needed_hours ? `${assignment.bids[0].time_needed_hours} hours` : ''}
+                          </span>
                         </div>
                       </div>
                     </div>
