@@ -13,6 +13,8 @@ import {
   Upload,
   Calendar,
   AlertTriangle,
+  Paperclip,
+  Download,
 } from "lucide-react";
 
 interface Assignment {
@@ -21,6 +23,7 @@ interface Assignment {
   notes: string;
   due_at: string;
   assigned_at: string;
+  order_id: string;
   orders: {
     id: string;
     title: string;
@@ -32,6 +35,7 @@ interface Assignment {
     budget_usd: number;
     deadline: string;
     instructions: string;
+    attachments: string[];
     profiles: {
       full_name: string;
       email: string;
@@ -44,16 +48,56 @@ interface Assignment {
   }[];
 }
 
+interface OrderMessage {
+  id: string;
+  subject: string;
+  body: string;
+  created_at: string;
+  attachments: string[];
+  from_profile: {
+    full_name: string;
+    role: string;
+  };
+}
+
 export default function WriterAssignments() {
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedAssignment, setSelectedAssignment] = useState<string | null>(null);
   const [submissionNote, setSubmissionNote] = useState("");
+  const [orderMessages, setOrderMessages] = useState<Record<string, OrderMessage[]>>({});
+  const [expandedMessages, setExpandedMessages] = useState<Record<string, boolean>>({});
   const { toast } = useToast();
 
   useEffect(() => {
     fetchAssignments();
   }, []);
+
+  const fetchOrderMessages = async (orderId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('messages')
+        .select(`
+          id,
+          subject,
+          body,
+          created_at,
+          attachments,
+          from_profile:profiles!messages_from_user_id_fkey (full_name, role)
+        `)
+        .eq('order_id', orderId)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      
+      setOrderMessages(prev => ({
+        ...prev,
+        [orderId]: data || []
+      }));
+    } catch (error) {
+      console.error('Error fetching order messages:', error);
+    }
+  };
 
   const fetchAssignments = async () => {
     try {
@@ -128,6 +172,37 @@ export default function WriterAssignments() {
     return { text: `${diffDays} days left`, urgent: false };
   };
 
+  const downloadAttachment = async (bucket: string, path: string, fileName?: string) => {
+    try {
+      const { data, error } = await supabase.storage
+        .from(bucket)
+        .download(path);
+
+      if (error) throw error;
+
+      const url = URL.createObjectURL(data);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = fileName || path.split("/").pop() || "download";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      toast({
+        title: "Success",
+        description: "File downloaded successfully",
+      });
+    } catch (error: any) {
+      console.error('Download error:', error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to download file",
+        variant: "destructive",
+      });
+    }
+  };
+
   const handleSubmitWork = async (assignmentId: string) => {
     try {
       // This would typically handle file upload and submission creation
@@ -143,6 +218,17 @@ export default function WriterAssignments() {
         description: "Failed to submit work. Please try again.",
         variant: "destructive",
       });
+    }
+  };
+
+  const toggleMessages = (orderId: string) => {
+    setExpandedMessages(prev => ({
+      ...prev,
+      [orderId]: !prev[orderId]
+    }));
+    
+    if (!orderMessages[orderId]) {
+      fetchOrderMessages(orderId);
     }
   };
 
@@ -262,6 +348,83 @@ export default function WriterAssignments() {
                         <p className="text-sm text-muted-foreground">
                           {assignment.orders.instructions}
                         </p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Order Attachments */}
+                  {assignment.orders.attachments && assignment.orders.attachments.length > 0 && (
+                    <div className="mb-4 p-4 bg-muted/50 rounded-lg">
+                      <h4 className="font-semibold mb-3 flex items-center gap-2">
+                        <Paperclip className="h-4 w-4" />
+                        Client's Order Attachments
+                      </h4>
+                      <div className="flex flex-wrap gap-2">
+                        {assignment.orders.attachments.map((attachment, index) => (
+                          <Button
+                            key={index}
+                            variant="outline"
+                            size="sm"
+                            onClick={() => downloadAttachment('order-attachments', attachment)}
+                          >
+                            <Download className="h-4 w-4 mr-2" />
+                            {attachment.split('/').pop()}
+                          </Button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Previous Messages */}
+                  <div className="mb-4">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => toggleMessages(assignment.order_id)}
+                      className="w-full"
+                    >
+                      <MessageSquare className="h-4 w-4 mr-2" />
+                      {expandedMessages[assignment.order_id] ? 'Hide' : 'View'} Client Messages
+                      {orderMessages[assignment.order_id] && ` (${orderMessages[assignment.order_id].length})`}
+                    </Button>
+                    
+                    {expandedMessages[assignment.order_id] && orderMessages[assignment.order_id] && (
+                      <div className="mt-3 space-y-3 max-h-96 overflow-y-auto">
+                        {orderMessages[assignment.order_id].length > 0 ? (
+                          orderMessages[assignment.order_id].map((message) => (
+                            <div key={message.id} className="p-3 bg-muted rounded-lg">
+                              <div className="flex justify-between items-start mb-2">
+                                <div>
+                                  <p className="font-medium text-sm">{message.subject || 'No Subject'}</p>
+                                  <p className="text-xs text-muted-foreground">
+                                    From: {message.from_profile?.full_name} • 
+                                    {new Date(message.created_at).toLocaleDateString()}
+                                  </p>
+                                </div>
+                              </div>
+                              <p className="text-sm mb-2">{message.body}</p>
+                              {message.attachments && message.attachments.length > 0 && (
+                                <div className="flex flex-wrap gap-1">
+                                  {message.attachments.map((attachment, idx) => (
+                                    <Button
+                                      key={idx}
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => downloadAttachment('message-attachments', attachment)}
+                                    >
+                                      <Paperclip className="h-3 w-3 mr-1" />
+                                      {attachment.split('/').pop()}
+                                    </Button>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          ))
+                        ) : (
+                          <p className="text-sm text-muted-foreground text-center py-4">
+                            No messages yet for this order
+                          </p>
+                        )}
                       </div>
                     )}
                   </div>
