@@ -18,6 +18,7 @@ import WritersManagement from "./pages/admin/WritersManagement";
 import PaymentsManagement from "./pages/admin/PaymentsManagement";
 import UsersManagement from "./pages/admin/UsersManagement";
 import BidsManagement from "./pages/admin/BidsManagement";
+import UserAnalytics from "./pages/admin/UserAnalytics";
 import WriterLayout from "./pages/writer/WriterLayout";
 import WriterDashboard from "./pages/writer/WriterDashboard";
 import AvailableOrders from "./pages/writer/AvailableOrders";
@@ -63,6 +64,7 @@ const App = () => (
             <Route path="bids" element={<BidsManagement />} />
             <Route path="payments" element={<PaymentsManagement />} />
             <Route path="messages" element={<AdminMessages />} />
+            <Route path="analytics" element={<UserAnalytics />} />
           </Route>
           
           {/* Writer Routes */}

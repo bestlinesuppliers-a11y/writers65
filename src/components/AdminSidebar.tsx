@@ -1,4 +1,4 @@
-import { Users, FileText, DollarSign, MessageSquare, AlertTriangle, BarChart3, UserCheck, Settings, Gavel } from "lucide-react";
+import { Users, FileText, DollarSign, MessageSquare, AlertTriangle, BarChart3, UserCheck, Settings, Gavel, TrendingUp } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 import {
   Sidebar,
@@ -21,6 +21,7 @@ const adminMenuItems = [
   { title: "Bids", url: "/admin/bids", icon: Gavel },
   { title: "Payments", url: "/admin/payments", icon: DollarSign },
   { title: "Messages", url: "/admin/messages", icon: MessageSquare },
+  { title: "Analytics", url: "/admin/analytics", icon: TrendingUp },
   { title: "Disputes", url: "/admin/disputes", icon: AlertTriangle },
   { title: "Settings", url: "/admin/settings", icon: Settings },
 ];
