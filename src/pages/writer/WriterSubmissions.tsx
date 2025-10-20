@@ -111,7 +111,6 @@ export default function WriterSubmissions() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      // Upload files if any
       const uploadedFiles: string[] = [];
       for (const file of files) {
         const fileName = `${user.id}/${Date.now()}-${file.name}`;
@@ -194,7 +193,6 @@ export default function WriterSubmissions() {
         </p>
       </div>
 
-      {/* New Submission Form */}
       <Card>
         <CardHeader>
           <CardTitle>Submit New Work</CardTitle>
@@ -244,7 +242,6 @@ export default function WriterSubmissions() {
         </CardContent>
       </Card>
 
-      {/* Submissions List */}
       <div className="grid gap-6">
         {submissions.map((submission) => (
           <Card key={submission.id}>
@@ -304,7 +301,7 @@ export default function WriterSubmissions() {
         ))}
       </div>
 
-      {submissions.length === <h4>0 && (
+      {submissions.length === 0 && (
         <Card>
           <CardContent className="text-center py-12">
             <FileText className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
