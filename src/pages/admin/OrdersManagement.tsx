@@ -7,7 +7,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { Search, Eye, DollarSign, Calendar, User } from "lucide-react";
+import { Search, Eye, DollarSign, Calendar, User, Download, FileText } from "lucide-react";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 interface Order {
   id: string;
@@ -20,6 +21,9 @@ interface Order {
   pages: number;
   words: number;
   created_at: string;
+  attachments: string[];
+  instructions: string;
+  description: string;
   profiles: {
     full_name: string;
     email: string;
@@ -32,6 +36,8 @@ export default function OrdersManagement() {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const { toast } = useToast();
+  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
 
   useEffect(() => {
     fetchOrders();
@@ -92,9 +98,42 @@ export default function OrdersManagement() {
     }
   };
 
+  const handleViewOrder = (order: Order) => {
+    setSelectedOrder(order);
+    setDetailsDialogOpen(true);
+  };
+
+  const downloadAttachment = async (url: string, filename: string) => {
+    try {
+      const filePath = url.includes('order-attachments/') 
+        ? url.split('order-attachments/')[1] 
+        : url;
+
+      const { data, error } = await supabase.storage
+        .from('order-attachments')
+        .download(filePath);
+
+      if (error) throw error;
+
+      const blob = new Blob([data]);
+      const link = document.createElement('a');
+      link.href = window.URL.createObjectURL(blob);
+      link.download = filename;
+      link.click();
+    } catch (error: any) {
+      console.error('Download error:', error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to download attachment",
+        variant: "destructive",
+      });
+    }
+  };
+
   const filteredOrders = orders.filter(order => {
+    const profileFullName = order.profiles ? order.profiles.full_name : '';
     const matchesSearch = order.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         order.profiles.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         profileFullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          order.category.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === "all" || order.status === statusFilter;
     
@@ -202,10 +241,10 @@ export default function OrdersManagement() {
                     </TableCell>
                     <TableCell>
                       <div>
-                        <p className="font-medium">{order.profiles.full_name}</p>
+                        <p className="font-medium">{order.profiles?.full_name || 'N/A'}</p>
                         <p className="text-sm text-muted-foreground flex items-center gap-1">
                           <User className="h-3 w-3" />
-                          {order.profiles.email}
+                          {order.profiles?.email || 'N/A'}
                         </p>
                       </div>
                     </TableCell>
@@ -233,7 +272,7 @@ export default function OrdersManagement() {
                     </TableCell>
                     <TableCell>
                       <div className="flex gap-2">
-                        <Button variant="ghost" size="sm">
+                        <Button variant="ghost" size="sm" onClick={() => handleViewOrder(order)}>
                           <Eye className="h-4 w-4" />
                         </Button>
                         
@@ -255,6 +294,59 @@ export default function OrdersManagement() {
           </div>
         </CardContent>
       </Card>
+
+      <Dialog open={detailsDialogOpen} onOpenChange={setDetailsDialogOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Order #{selectedOrder?.id.substring(0, 6)}</DialogTitle>
+            <DialogDescription>{selectedOrder?.title}</DialogDescription>
+          </DialogHeader>
+          {selectedOrder && (
+            <div className="space-y-6 py-4 max-h-[70vh] overflow-y-auto">
+               <div className="grid grid-cols-2 gap-4">
+                 <div><span className="font-semibold">Category:</span> {selectedOrder.category}</div>
+                 <div><span className="font-semibold">Academic Level:</span> {selectedOrder.academic_level}</div>
+                 <div><span className="font-semibold">Pages:</span> {selectedOrder.pages}</div>
+                 <div><span className="font-semibold">Words:</span> {selectedOrder.words}</div>
+                 <div><span className="font-semibold">Budget:</span> ${selectedOrder.budget_usd}</div>
+                 <div><span className="font-semibold">Deadline:</span> {new Date(selectedOrder.deadline).toLocaleString()}</div>
+               </div>
+              <div>
+                <h3 className="text-lg font-semibold mb-2">Instructions</h3>
+                <div className="bg-muted p-4 rounded-lg">
+                  <p className="text-sm whitespace-pre-wrap">{selectedOrder.instructions || selectedOrder.description}</p>
+                </div>
+              </div>
+
+              {selectedOrder.attachments && selectedOrder.attachments.length > 0 && (
+                <div>
+                  <h3 className="text-lg font-semibold mb-2">Attachments</h3>
+                  <div className="space-y-2">
+                    {selectedOrder.attachments.map((attachment, index) => (
+                      <Button
+                        key={index}
+                        variant="outline"
+                        size="sm"
+                        className="w-full justify-between"
+                        onClick={() => downloadAttachment(attachment, `attachment-${index + 1}`)}
+                      >
+                        <span className="flex items-center gap-2">
+                          <FileText className="h-4 w-4" />
+                          Attachment {index + 1}
+                        </span>
+                        <Download className="h-4 w-4" />
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+          <DialogFooter>
+            <Button onClick={() => setDetailsDialogOpen(false)}>Close</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

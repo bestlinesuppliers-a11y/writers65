@@ -118,7 +118,6 @@ export default function WriterAssignments() {
 
       if (error) throw error;
 
-      // Fetch the accepted bids for these assignments
       if (data && data.length > 0) {
         const orderIds = data.map(a => a.order_id);
         const { data: bidsData } = await supabase
@@ -128,7 +127,6 @@ export default function WriterAssignments() {
           .eq('writer_id', user.id)
           .eq('status', 'accepted');
 
-        // Merge bid data with assignments
         const assignmentsWithBids = data.map(assignment => ({
           ...assignment,
           bids: bidsData?.filter(b => b.order_id === assignment.order_id) || []
@@ -172,7 +170,7 @@ export default function WriterAssignments() {
     return { text: `${diffDays} days left`, urgent: false };
   };
 
-  const downloadAttachment = async (bucket: string, path: string, fileName?: string) => {
+  const downloadAttachment = async (bucket: string, path: string) => {
     try {
       const { data, error } = await supabase.storage
         .from(bucket)
@@ -183,16 +181,11 @@ export default function WriterAssignments() {
       const url = URL.createObjectURL(data);
       const a = document.createElement("a");
       a.href = url;
-      a.download = fileName || path.split("/").pop() || "download";
+      a.download = path.split("/").pop() || "download";
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
-
-      toast({
-        title: "Success",
-        description: "File downloaded successfully",
-      });
     } catch (error: any) {
       console.error('Download error:', error);
       toast({
@@ -205,7 +198,6 @@ export default function WriterAssignments() {
 
   const handleSubmitWork = async (assignmentId: string) => {
     try {
-      // This would typically handle file upload and submission creation
       toast({
         title: "Work Submitted",
         description: "Your submission has been sent to the client for review.",
@@ -352,7 +344,6 @@ export default function WriterAssignments() {
                     )}
                   </div>
 
-                  {/* Order Attachments */}
                   {assignment.orders.attachments && assignment.orders.attachments.length > 0 && (
                     <div className="mb-4 p-4 bg-muted/50 rounded-lg">
                       <h4 className="font-semibold mb-3 flex items-center gap-2">
@@ -375,7 +366,6 @@ export default function WriterAssignments() {
                     </div>
                   )}
 
-                  {/* Previous Messages */}
                   <div className="mb-4">
                     <Button
                       variant="outline"
@@ -456,7 +446,6 @@ export default function WriterAssignments() {
         </div>
       )}
 
-      {/* Submission Modal */}
       {selectedAssignment && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
           <Card className="w-full max-w-lg">

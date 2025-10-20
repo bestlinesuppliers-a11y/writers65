@@ -72,6 +72,31 @@ export default function WriterSubmissions() {
     }
   };
 
+  const downloadAttachment = async (filePath: string) => {
+    try {
+      const { data, error } = await supabase.storage
+        .from('submissions')
+        .download(filePath);
+
+      if (error) throw error;
+
+      const blob = new Blob([data]);
+      const link = document.createElement('a');
+      link.href = window.URL.createObjectURL(blob);
+      link.download = filePath.split('/').pop() || 'download';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (error: any) {
+      console.error("Download error: ", error);
+      toast({
+        title: "Download Failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
   const handleSubmit = async () => {
     if (!selectedOrder || !submissionMessage) {
       toast({
@@ -262,7 +287,7 @@ export default function WriterSubmissions() {
                   <h4 className="font-medium mb-2">Files:</h4>
                   <div className="flex flex-wrap gap-2">
                     {submission.files.map((file, index) => (
-                      <Button key={index} variant="outline" size="sm">
+                      <Button key={index} variant="outline" size="sm" onClick={() => downloadAttachment(file)}>
                         <Download className="mr-2 h-4 w-4" />
                         {file.split('/').pop()}
                       </Button>
@@ -279,7 +304,7 @@ export default function WriterSubmissions() {
         ))}
       </div>
 
-      {submissions.length === 0 && (
+      {submissions.length === <h4>0 && (
         <Card>
           <CardContent className="text-center py-12">
             <FileText className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
