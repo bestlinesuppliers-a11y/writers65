@@ -103,12 +103,8 @@ export default function OrdersManagement() {
     setDetailsDialogOpen(true);
   };
 
-  const downloadAttachment = async (url: string, filename: string) => {
+  const downloadAttachment = async (filePath: string) => {
     try {
-      const filePath = url.includes('order-attachments/') 
-        ? url.split('order-attachments/')[1] 
-        : url;
-
       const { data, error } = await supabase.storage
         .from('order-attachments')
         .download(filePath);
@@ -118,8 +114,11 @@ export default function OrdersManagement() {
       const blob = new Blob([data]);
       const link = document.createElement('a');
       link.href = window.URL.createObjectURL(blob);
-      link.download = filename;
+      link.download = filePath.split('/').pop() || 'download';
+      document.body.appendChild(link);
       link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(link.href);
     } catch (error: any) {
       console.error('Download error:', error);
       toast({
@@ -328,11 +327,11 @@ export default function OrdersManagement() {
                         variant="outline"
                         size="sm"
                         className="w-full justify-between"
-                        onClick={() => downloadAttachment(attachment, `attachment-${index + 1}`)}
+                        onClick={() => downloadAttachment(attachment)}
                       >
                         <span className="flex items-center gap-2">
                           <FileText className="h-4 w-4" />
-                          Attachment {index + 1}
+                          {attachment.split('/').pop()}
                         </span>
                         <Download className="h-4 w-4" />
                       </Button>

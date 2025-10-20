@@ -52,10 +52,10 @@ export default function PlaceOrder() {
           description: "You must be logged in to place an order",
           variant: "destructive",
         });
+        setLoading(false);
         return;
       }
 
-      // Validate form data
       if (!formData.title || !formData.description || !formData.category || 
           !formData.academicLevel || !formData.words || !formData.deadline) {
         toast({
@@ -63,10 +63,10 @@ export default function PlaceOrder() {
           description: "Please fill in all required fields",
           variant: "destructive",
         });
+        setLoading(false);
         return;
       }
 
-      // Validate file sizes (max 10MB each)
       for (const file of attachments) {
         if (file.size > 10 * 1024 * 1024) {
           toast({
@@ -74,64 +74,18 @@ export default function PlaceOrder() {
             description: `File ${file.name} exceeds 10MB limit. Please choose a smaller file.`,
             variant: "destructive",
           });
+          setLoading(false);
           return;
         }
       }
 
-      // Upload attachments if any
-      const uploadedAttachments: string[] = [];
-      let uploadErrors: string[] = [];
-      
-      for (const file of attachments) {
-        const fileName = `${user.id}/${Date.now()}-${file.name}`;
-        console.log('Uploading file:', fileName, 'Size:', file.size);
-        
-        const { data: uploadData, error: uploadError } = await supabase.storage
-          .from('order-attachments')
-          .upload(fileName, file, {
-            cacheControl: '3600',
-            upsert: false
-          });
-
-        if (uploadError) {
-          console.error('Upload error:', uploadError);
-          uploadErrors.push(`${file.name}: ${uploadError.message}`);
-        } else if (uploadData) {
-          uploadedAttachments.push(fileName);
-          console.log('Successfully uploaded:', fileName);
-        }
-      }
-
-      // Show upload errors if any, but allow order creation to continue
-      if (uploadErrors.length > 0) {
-        console.warn('Upload errors:', uploadErrors);
-        toast({
-          title: "Upload Warning",
-          description: `Some files failed to upload: ${uploadErrors.join(', ')}. Order will be created without these files.`,
-          variant: "destructive",
-        });
-      }
-
-      console.log('Creating order with data:', {
-        title: formData.title,
-        description: formData.description,
-        category: formData.category,
-        academic_level: formData.academicLevel,
-        words: formData.words,
-        pages: formData.pages,
-        deadline: formData.deadline,
-        attachments: uploadedAttachments,
-        sources: formData.sources,
-      });
-
-      // Create the order
-      const { data, error } = await supabase
+      const { data: orderData, error: orderError } = await supabase
         .from('orders')
         .insert({
           title: formData.title,
           description: formData.description,
           category: formData.category,
-          academic_level: formData.academicLevel as "high_school" | "undergraduate" | "masters" | "phd" | "professional",
+          academic_level: formData.academicLevel as any,
           words: formData.words,
           pages: formData.pages,
           deadline: formData.deadline,
@@ -139,38 +93,58 @@ export default function PlaceOrder() {
           referencing_style: formData.referencingStyle,
           budget_usd: formData.budgetUsd,
           client_id: user.id,
-          attachments: uploadedAttachments,
           sources: formData.sources,
           status: 'pending_payment',
         })
         .select()
         .single();
 
-      if (error) {
-        console.error('Database error:', error);
-        throw error;
-      }
+      if (orderError) throw orderError;
 
-      console.log('Order created successfully:', data);
+      const orderId = orderData.id;
+      const uploadedAttachments: string[] = [];
+
+      if (attachments.length > 0) {
+        for (const file of attachments) {
+          const filePath = `${orderId}/${file.name}`;
+          const { error: uploadError } = await supabase.storage
+            .from('order-attachments')
+            .upload(filePath, file);
+
+          if (uploadError) {
+            console.error('Upload Error:', uploadError);
+            toast({
+              title: "File Upload Failed",
+              description: `Could not upload ${file.name}. Please try again.`,
+              variant: "destructive",
+            });
+          } else {
+            uploadedAttachments.push(filePath);
+          }
+        }
+
+        if (uploadedAttachments.length > 0) {
+          const { error: updateError } = await supabase
+            .from('orders')
+            .update({ attachments: uploadedAttachments })
+            .eq('id', orderId);
+
+          if (updateError) throw updateError;
+        }
+      }
 
       toast({
         title: "Success",
-        description: attachments.length > 0 && uploadedAttachments.length === 0 
-          ? "Order created successfully, but some files failed to upload. Redirecting to payment..." 
-          : "Order created successfully! Redirecting to payment...",
+        description: "Order created successfully! Redirecting to payment...",
       });
 
-      // Redirect to payment page
-      navigate(`/client/payment/${data.id}`);
+      navigate(`/client/payment/${orderId}`);
     } catch (error) {
       console.error('Order creation error:', error);
       const errorMessage = error instanceof Error ? error.message : "Failed to create order";
-      
       toast({
         title: "Error",
-        description: errorMessage.includes("RLS") 
-          ? "Access denied. Please make sure you're logged in and try again."
-          : errorMessage,
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
@@ -179,7 +153,7 @@ export default function PlaceOrder() {
   };
 
   const calculatePages = (words: number) => {
-    return Math.ceil(words / 275); // Assuming 275 words per page
+    return Math.ceil(words / 275);
   };
 
   const calculateBudget = () => {
@@ -203,7 +177,7 @@ export default function PlaceOrder() {
       return 1;
     };
 
-    return Math.ceil(formData.pages * baseRate * urgencyMultiplier());
+    return Math.ceil(calculatePages(formData.words) * baseRate * urgencyMultiplier());
   };
 
   const handleWordsChange = (words: number) => {
@@ -215,7 +189,6 @@ export default function PlaceOrder() {
       budgetUsd: calculateBudget()
     }));
   };
-
   return (
     <div className="p-6 space-y-6">
       <div>
@@ -226,7 +199,6 @@ export default function PlaceOrder() {
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
-        {/* Basic Information */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -300,7 +272,6 @@ export default function PlaceOrder() {
           </CardContent>
         </Card>
 
-        {/* Project Details */}
         <Card>
           <CardHeader>
             <CardTitle>Project Details</CardTitle>
@@ -413,7 +384,6 @@ export default function PlaceOrder() {
           </CardContent>
         </Card>
 
-        {/* Pricing */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
